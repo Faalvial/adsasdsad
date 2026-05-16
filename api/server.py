@@ -1,4 +1,5 @@
 # Archivo: api/server.py
+from src.database import save_asistencia, get_persona_id, load_embeddings
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
@@ -54,3 +55,22 @@ def registrar_asistencia(payload: PayloadAsistencia):
         "registros_guardados": procesados,
         "no_encontrados": errores
     }
+
+
+@app.get("/api/v1/embeddings")
+def obtener_embeddings():
+    """Descarga los rostros registrados desde la base de datos hacia el nodo Edge."""
+    print("[API] Solicitud de descarga de embeddings recibida...")
+    try:
+        registered = load_embeddings()
+
+        # Convertir los ndarray de NumPy a listas nativas para poder enviarlos por JSON
+        datos_serializados = {
+            nombre: embedding.tolist() for nombre, embedding in registered.items()
+        }
+
+        print(f"[API] Enviando {len(datos_serializados)} perfiles registrados.")
+        return datos_serializados
+
+    except Exception as e:
+        return {"error": f"Error al cargar embeddings: {str(e)}"}

@@ -5,7 +5,7 @@ from insightface.app import FaceAnalysis
 from config import THRESHOLD, MODEL_NAME, CAMERA_INDEX, SKIP_FRAMES
 from src.face_recognizer import identify_face
 from src.camera import draw_result
-from src.database import load_embeddings # Mantenemos esta para cargar las caras al inicio
+import numpy as np
 
 def main():
     # Inicializar InsightFace
@@ -13,13 +13,34 @@ def main():
     app = FaceAnalysis(name=MODEL_NAME, providers=["CPUExecutionProvider"])
     app.prepare(ctx_id=0, det_size=(640, 640))
 
-    # Cargar embeddings desde PostgreSQL
-    print("[INFO] Cargando embeddings desde la base de datos...")
-    registered = load_embeddings()
+    # ... (dentro de def main():)
+
+    # Cargar embeddings desde la API (ya no desde PostgreSQL)
+    print("[INFO] Obteniendo embeddings desde la API central...")
+    registered = {}
+
+    try:
+        url_embeddings = "http://localhost:8000/api/v1/embeddings"
+        respuesta = requests.get(url_embeddings, timeout=5)
+
+        if respuesta.status_code == 200:
+            datos_json = respuesta.json()
+
+            # Reconstruir el diccionario convirtiendo las listas de vuelta a NumPy arrays
+            registered = {
+                nombre: np.array(emb_list, dtype=np.float32)
+                for nombre, emb_list in datos_json.items()
+            }
+        else:
+            print(f"[ERROR] La API respondió con código: {respuesta.status_code}")
+            return
+
+    except requests.exceptions.RequestException as e:
+        print(f"[ERROR RED] No se pudo conectar a la API para cargar embeddings: {e}")
+        return
 
     if not registered:
-        print("[ERROR] No hay personas registradas en la base de datos")
-        print("[INFO] Ejecuta primero el script de registro de personas")
+        print("[ERROR] No se recibieron personas desde la API.")
         return
 
     print(f"[INFO] {len(registered)} persona(s) cargada(s): {list(registered.keys())}")
