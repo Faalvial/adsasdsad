@@ -3,6 +3,7 @@ THRESHOLD = 0.5 #umbral
 MODEL_NAME = "buffalo_sc"
 CAMERA_INDEX = "rtsp://admin:Hik12345@172.16.9.114:554/Streaming/Channels/101"
 SKIP_FRAMES = 5
+COOLDOWN = 15
 
 # PostgreSQL
 DB_HOST = "localhost"
