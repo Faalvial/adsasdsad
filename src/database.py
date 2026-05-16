@@ -110,3 +110,38 @@ def get_persona_id(nombre):
         if conn: conn.close()
 
     return persona_id
+
+
+def get_ultimo_estado_asistencia(persona_id):
+    """
+    Obtiene el tipo del último registro ('entrada' o 'salida')
+    de una persona basado estrictamente en el último ID insertado.
+    """
+    conn = None
+    cursor = None
+    ultimo_tipo = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Al ordenar por id DESC, evitamos cualquier bug de zona horaria o medianoche
+        query = """
+            SELECT tipo 
+            FROM asistencia 
+            WHERE persona_id = %s 
+            ORDER BY id DESC 
+            LIMIT 1
+        """
+        cursor.execute(query, (persona_id,))
+        row = cursor.fetchone()
+
+        if row:
+            ultimo_tipo = row[0]
+
+    except psycopg2.Error as e:
+        print(f"[ERROR BD] Error al obtener el último estado: {e}")
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+    return ultimo_tipo

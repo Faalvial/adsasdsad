@@ -2,7 +2,7 @@ import cv2
 import requests # <--- Nueva importación
 from insightface.app import FaceAnalysis
 
-from config import THRESHOLD, MODEL_NAME, CAMERA_INDEX, SKIP_FRAMES
+from config import THRESHOLD, MODEL_NAME, CAMERA_INDEX, SKIP_FRAMES, COOLDOWN
 from src.face_recognizer import identify_face
 from src.camera import draw_result
 import numpy as np
@@ -81,7 +81,7 @@ def main():
                 ahora = datetime.now()
                 ultimo = cooldown.get(name)
 
-                if not ultimo or (ahora - ultimo).seconds > 5:
+                if not ultimo or (ahora - ultimo).seconds > COOLDOWN:
                     # 1. Construir el payload JSON
                     payload = {
                         "camera_id": "hikvision_lab",
