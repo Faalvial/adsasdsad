@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import List
 
 # Importamos tus funciones de base de datos
-from src.database import save_asistencia, get_persona_id, load_embeddings, get_ultimo_estado_asistencia
+from src.database import save_asistencia, get_persona_id, load_embeddings, get_ultimo_estado_asistencia, get_historial_asistencia
 
 app = FastAPI(title="API Control de Asistencia - Tech Lab")
 
@@ -76,4 +76,44 @@ def registrar_asistencia(payload: PayloadAsistencia):
         "status": "completado",
         "registros_guardados": procesados,
         "no_encontrados": errores
+    }
+
+
+@app.get("/api/v1/reportes/asistencia")
+def reporte_asistencia(limite: int = 50):
+    """
+    Endpoint para que la plataforma institucional consuma el historial del Tech Lab.
+    Acepta un parámetro 'limite' en la URL (por defecto 50).
+    """
+    print(f"[API] Generando reporte de los últimos {limite} registros...")
+    registros = get_historial_asistencia(limite)
+
+    return {
+        "status": "ok",
+        "total_registros": len(registros),
+        "data": registros
+    }
+
+
+@app.get("/api/v1/reportes/asistencia")
+def reporte_asistencia(limite: int = 50, nombre: str = None, fecha: str = None):
+    """
+    Endpoint para consultar el historial de asistencia del Tech Lab.
+    Soporta filtros opcionales:
+    - nombre: Filtra por coincidencia parcial (ej. 'Far')
+    - fecha: Filtra por un día específico en formato 'YYYY-MM-DD'
+    """
+    print(f"[API] Generando reporte. Filtros -> Nombre: {nombre} | Fecha: {fecha} | Límite: {limite}")
+
+    registros = get_historial_asistencia(limite=limite, nombre=nombre, fecha=fecha)
+
+    return {
+        "status": "ok",
+        "total_registros": len(registros),
+        "filtros_aplicados": {
+            "nombre": nombre,
+            "fecha": fecha,
+            "limite": limite
+        },
+        "data": registros
     }

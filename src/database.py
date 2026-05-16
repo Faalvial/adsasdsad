@@ -145,3 +145,103 @@ def get_ultimo_estado_asistencia(persona_id):
         if conn: conn.close()
 
     return ultimo_tipo
+
+
+def get_historial_asistencia(limite=50):
+    """
+    Obtiene los últimos registros de asistencia cruzando datos con la tabla personas.
+    Devuelve una lista de diccionarios listos para ser serializados en JSON.
+    """
+    conn = None
+    cursor = None
+    historial = []
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # JOIN para obtener el nombre real de la persona en lugar de solo su ID
+        query = """
+            SELECT a.id, p.nombre, a.tipo, a.fecha_hora 
+            FROM asistencia a
+            JOIN personas p ON a.persona_id = p.id
+            ORDER BY a.fecha_hora DESC
+            LIMIT %s
+        """
+        cursor.execute(query, (limite,))
+        rows = cursor.fetchall()
+
+        for row in rows:
+            historial.append({
+                "registro_id": row[0],
+                "nombre": row[1],
+                "tipo": row[2],
+                "fecha_hora": row[3].isoformat() # Convertir TIMESTAMP a string ISO
+            })
+
+    except psycopg2.Error as e:
+        print(f"[ERROR BD] Error al obtener el historial: {e}")
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+    return historial
+
+
+def get_historial_asistencia(limite=50, nombre=None, fecha=None):
+    """
+    Obtiene el historial de asistencia con filtros opcionales por nombre y fecha.
+    - fecha: Debe venir en formato cadena 'YYYY-MM-DD'
+    """
+    conn = None
+    cursor = None
+    historial = []
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Consulta base
+        query = """
+            SELECT a.id, p.nombre, a.tipo, a.fecha_hora 
+            FROM asistencia a
+            JOIN personas p ON a.persona_id = p.id
+        """
+
+        condiciones = []
+        parametros = []
+
+        # Filtro por nombre (búsqueda parcial e insensible a mayúsculas/minúsculas)
+        if nombre:
+            condiciones.append("p.nombre ILIKE %s")
+            parametros.append(f"%{nombre}%")
+
+        # Filtro por fecha exacta (extrayendo solo la parte DATE del TIMESTAMP)
+        if fecha:
+            condiciones.append("DATE(a.fecha_hora) = %s")
+            parametros.append(fecha)
+
+        # Si existen filtros, los unimos con AND y los agregamos a la consulta
+        if condiciones:
+            query += " WHERE " + " AND ".join(condiciones)
+
+        # Ordenamiento y límite
+        query += " ORDER BY a.fecha_hora DESC LIMIT %s"
+        parametros.append(limite)
+
+        cursor.execute(query, tuple(parametros))
+        rows = cursor.fetchall()
+
+        for row in rows:
+            historial.append({
+                "registro_id": row[0],
+                "nombre": row[1],
+                "tipo": row[2],
+                "fecha_hora": row[3].isoformat()
+            })
+
+    except psycopg2.Error as e:
+        print(f"[ERROR BD] Error al obtener el historial filtrado: {e}")
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+    return historial
