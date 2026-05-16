@@ -1,6 +1,6 @@
 import cv2
 from insightface.app import FaceAnalysis
-from config import MODEL_NAME
+from config import MODEL_NAME,CAMERA_INDEX
 from src.database import save_persona
 
 def register_person():
@@ -13,7 +13,7 @@ def register_person():
         print("[ERROR] El nombre no puede estar vacío")
         return
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_FFMPEG)
     if not cap.isOpened():
         print("[ERROR] No se pudo abrir la cámara")
         return

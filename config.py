@@ -1,7 +1,7 @@
 # Threshold y otras configuraciones
 THRESHOLD = 0.5 #umbral 
 MODEL_NAME = "buffalo_sc"
-CAMERA_INDEX = 0 #tipp de camara
+CAMERA_INDEX = "rtsp://admin:Hik12345@172.16.9.114:554/Streaming/Channels/101"
 SKIP_FRAMES = 5
 
 # PostgreSQL
