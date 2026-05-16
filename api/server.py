@@ -1,12 +1,22 @@
 # Archivo: api/server.py
 from fastapi import FastAPI
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware  # <--- Nueva importación
 from typing import List
 
 # Importamos tus funciones de base de datos
 from src.database import save_asistencia, get_persona_id, load_embeddings, get_ultimo_estado_asistencia, get_historial_asistencia
 
 app = FastAPI(title="API Control de Asistencia - Tech Lab")
+
+# Configuración de CORS para permitir que React se conecte
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permite peticiones desde cualquier origen (ideal para desarrollo)
+    allow_credentials=True,
+    allow_methods=["*"],  # Permite todos los métodos (GET, POST, etc.)
+    allow_headers=["*"],  # Permite todas las cabeceras
+)
 
 # 1. Esquema de datos
 class Reconocimiento(BaseModel):
