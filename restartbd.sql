@@ -1,0 +1,1 @@
+TRUNCATE TABLE personas, asistencia RESTART IDENTITY CASCADE;
