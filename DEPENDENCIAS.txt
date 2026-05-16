@@ -5,3 +5,4 @@ onnxruntime
 psycopg2
 fastapi
 uvicorn
+requests

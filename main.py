@@ -1,10 +1,11 @@
 import cv2
+import requests # <--- Nueva importación
 from insightface.app import FaceAnalysis
 
 from config import THRESHOLD, MODEL_NAME, CAMERA_INDEX, SKIP_FRAMES
 from src.face_recognizer import identify_face
 from src.camera import draw_result
-from src.database import load_embeddings, save_asistencia, get_persona_id
+from src.database import load_embeddings # Mantenemos esta para cargar las caras al inicio
 
 def main():
     # Inicializar InsightFace
@@ -24,6 +25,7 @@ def main():
     print(f"[INFO] {len(registered)} persona(s) cargada(s): {list(registered.keys())}")
 
     # Abrir cámara
+    #cap = cv2.VideoCapture(0)
     cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_FFMPEG)
     if not cap.isOpened():
         print("[ERROR] No se pudo abrir la cámara")
@@ -52,18 +54,37 @@ def main():
             name, score = identify_face(embedding, registered, THRESHOLD)
 
             # Registrar asistencia si es conocido y no está en cooldown
+            # Registrar asistencia si es conocido y no está en cooldown
             if name != "Desconocido":
                 from datetime import datetime
                 ahora = datetime.now()
                 ultimo = cooldown.get(name)
 
                 if not ultimo or (ahora - ultimo).seconds > 5:
-                    persona_id = get_persona_id(name)
-                    if persona_id:
-                        save_asistencia(persona_id, "entrada")
-                        cooldown[name] = ahora
-                        print(f"[OK] Asistencia registrada: {name} - {ahora.strftime('%H:%M:%S')}")
+                    # 1. Construir el payload JSON
+                    payload = {
+                        "camera_id": "hikvision_lab",
+                        "timestamp": ahora.isoformat(),
+                        "recognized_faces": [
+                            {
+                                "nombre": name,
+                                "score": float(score)  # Convertir a float nativo de Python
+                            }
+                        ]
+                    }
 
+                    # 2. Enviar a la API
+                    try:
+                        api_url = "http://localhost:8000/api/v1/asistencia/registrar"
+                        respuesta = requests.post(api_url, json=payload, timeout=3)
+
+                        if respuesta.status_code == 200:
+                            cooldown[name] = ahora
+                            print(f"[OK] Asistencia enviada a la API: {name} - {ahora.strftime('%H:%M:%S')}")
+                        else:
+                            print(f"[ERROR API] La API respondió con error: {respuesta.status_code}")
+                    except requests.exceptions.RequestException as e:
+                        print(f"[ERROR RED] No se pudo conectar con la API: {e}")
             draw_result(frame, face.bbox, name, score)
 
         cv2.imshow("Control de Asistencia", frame)
