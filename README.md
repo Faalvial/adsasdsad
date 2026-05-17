@@ -7,3 +7,10 @@ Dependencias: opencv-python / insightface / numpy / nnxruntime / psycopg2
 
 Crear base de datos y conectarlo a python
 
+iniciar backend:
+uvicorn api.server:app --reload
+
+iniciar frontend:
+cd frontend
+npm install
+npm run dev
