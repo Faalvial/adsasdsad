@@ -12,7 +12,7 @@ def register_person():
     if not nombre:
         print("[ERROR] El nombre no puede estar vacío")
         return
-
+    #cap = cv2.VideoCapture(0)
     cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_FFMPEG)
     if not cap.isOpened():
         print("[ERROR] No se pudo abrir la cámara")
