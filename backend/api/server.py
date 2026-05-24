@@ -90,22 +90,6 @@ def registrar_asistencia(payload: PayloadAsistencia):
 
 
 @app.get("/api/v1/reportes/asistencia")
-def reporte_asistencia(limite: int = 50):
-    """
-    Endpoint para que la plataforma institucional consuma el historial del Tech Lab.
-    Acepta un parámetro 'limite' en la URL (por defecto 50).
-    """
-    print(f"[API] Generando reporte de los últimos {limite} registros...")
-    registros = get_historial_asistencia(limite)
-
-    return {
-        "status": "ok",
-        "total_registros": len(registros),
-        "data": registros
-    }
-
-
-@app.get("/api/v1/reportes/asistencia")
 def reporte_asistencia(limite: int = 50, nombre: str = None, fecha: str = None):
     """
     Endpoint para consultar el historial de asistencia del Tech Lab.

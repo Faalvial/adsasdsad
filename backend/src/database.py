@@ -147,46 +147,6 @@ def get_ultimo_estado_asistencia(persona_id):
     return ultimo_tipo
 
 
-def get_historial_asistencia(limite=50):
-    """
-    Obtiene los últimos registros de asistencia cruzando datos con la tabla personas.
-    Devuelve una lista de diccionarios listos para ser serializados en JSON.
-    """
-    conn = None
-    cursor = None
-    historial = []
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-
-        # JOIN para obtener el nombre real de la persona en lugar de solo su ID
-        query = """
-            SELECT a.id, p.nombre, a.tipo, a.fecha_hora 
-            FROM asistencia a
-            JOIN personas p ON a.persona_id = p.id
-            ORDER BY a.fecha_hora DESC
-            LIMIT %s
-        """
-        cursor.execute(query, (limite,))
-        rows = cursor.fetchall()
-
-        for row in rows:
-            historial.append({
-                "registro_id": row[0],
-                "nombre": row[1],
-                "tipo": row[2],
-                "fecha_hora": row[3].isoformat() # Convertir TIMESTAMP a string ISO
-            })
-
-    except psycopg2.Error as e:
-        print(f"[ERROR BD] Error al obtener el historial: {e}")
-    finally:
-        if cursor: cursor.close()
-        if conn: conn.close()
-
-    return historial
-
-
 def get_historial_asistencia(limite=50, nombre=None, fecha=None):
     """
     Obtiene el historial de asistencia con filtros opcionales por nombre y fecha.
@@ -201,7 +161,7 @@ def get_historial_asistencia(limite=50, nombre=None, fecha=None):
 
         # Consulta base
         query = """
-            SELECT a.id, p.nombre, a.tipo, a.fecha_hora 
+            SELECT a.id, p.nombre, a.tipo, a.fecha_hora
             FROM asistencia a
             JOIN personas p ON a.persona_id = p.id
         """

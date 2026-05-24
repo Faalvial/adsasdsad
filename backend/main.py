@@ -82,7 +82,7 @@ def main():
                 ahora = datetime.now()
                 ultimo = cooldown.get(name)
 
-                if not ultimo or (ahora - ultimo).seconds > COOLDOWN:
+                if not ultimo or (ahora - ultimo).total_seconds() > COOLDOWN:
                     # 1. Construir el payload JSON
                     payload = {
                         "camera_id": "hikvision_lab",
