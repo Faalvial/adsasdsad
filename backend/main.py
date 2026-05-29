@@ -47,8 +47,8 @@ def main():
     print(f"[INFO] {len(registered)} persona(s) cargada(s): {list(registered.keys())}")
 
     # Abrir cámara
-    cap = cv2.VideoCapture(0)
-    #cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_FFMPEG)
+    #cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_FFMPEG)
     if not cap.isOpened():
         print("[ERROR] No se pudo abrir la cámara")
         return
