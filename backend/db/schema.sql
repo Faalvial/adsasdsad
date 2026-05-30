@@ -1,11 +1,19 @@
--- 1. Crear la base de datos (ejecutar por separado si es necesario)
--- CREATE DATABASE control_asistencia;
+-- 1. Tabla para los proyectos del Tech Lab
+CREATE TABLE proyectos (
+    id SERIAL PRIMARY KEY,
+    nombre_proyecto VARCHAR(150) UNIQUE NOT NULL,
+    descripcion TEXT,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
--- 2. Tabla para almacenar a los usuarios registrados
+-- 2. Tabla modificada para alumnos (personas)
 CREATE TABLE personas (
     id SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) UNIQUE NOT NULL,
-    embedding BYTEA NOT NULL, -- Almacena el array de numpy como binario
+    codigo_alumno VARCHAR(50) UNIQUE NOT NULL, -- Identificador único indispensable
+    nombres VARCHAR(100) NOT NULL,
+    apellidos VARCHAR(100) NOT NULL,
+    proyecto_id INTEGER REFERENCES proyectos(id) ON DELETE SET NULL, -- Relación con proyectos
+    embedding BYTEA NOT NULL, -- Vector de características promediado (5 fotos)
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -17,5 +25,8 @@ CREATE TABLE asistencia (
     fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Opcional: Índice para búsquedas rápidas por nombre
-CREATE INDEX idx_nombre_persona ON personas(nombre);
+-- Índices para optimizar la velocidad de los filtros y búsquedas en tiempo real
+CREATE INDEX idx_codigo_alumno ON personas(codigo_alumno);
+CREATE INDEX idx_persona_proyecto ON personas(proyecto_id);
+CREATE INDEX idx_asistencia_persona ON asistencia(persona_id);
+CREATE INDEX idx_asistencia_fecha ON asistencia(fecha_hora);

@@ -1,1 +1,1 @@
-TRUNCATE TABLE personas, asistencia RESTART IDENTITY CASCADE;
+TRUNCATE TABLE proyectos, personas, asistencia RESTART IDENTITY CASCADE;
