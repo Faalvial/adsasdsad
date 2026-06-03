@@ -2,7 +2,7 @@
 
 Este proyecto es una solución para el control de asistencia mediante reconocimiento facial en tiempo real. Está diseñado con una arquitectura cliente-servidor que separa claramente la interfaz de usuario del procesamiento biométrico y la base de datos.
 
-## 🏗️ Arquitectura del Proyecto
+## Arquitectura del Proyecto
 
 El sistema está dividido en dos módulos principales, cada uno con su propia configuración y control de versiones (`.gitignore`):
 
@@ -11,7 +11,7 @@ El sistema está dividido en dos módulos principales, cada uno con su propia co
 
 ---
 
-## ⚙️ Requisitos Previos
+## Requisitos Previos
 
 Antes de iniciar, asegúrate de tener instalados:
 
@@ -21,7 +21,7 @@ Antes de iniciar, asegúrate de tener instalados:
 
 ---
 
-## 🚀 Guía de Instalación y Despliegue
+## Guía de Instalación y Despliegue
 
 ### 1. Configuración de la Base de Datos
 
@@ -81,7 +81,7 @@ npm run dev
 
 ---
 
-## ⚠️ Notas para el Control de Versiones (Git)
+## Notas para el Control de Versiones (Git)
 
 Para mantener el repositorio limpio y profesional:
 
@@ -106,7 +106,7 @@ dist/
 
 ---
 
-## 📌 Tecnologías Utilizadas
+## Tecnologías Utilizadas
 
 ### Backend
 
@@ -125,7 +125,7 @@ dist/
 
 ---
 
-## 🎯 Objetivo del Proyecto
+## Objetivo del Proyecto
 
 El sistema busca automatizar el registro de asistencia mediante reconocimiento facial en tiempo real, ofreciendo una solución moderna, escalable y desacoplada entre frontend y backend.
 
