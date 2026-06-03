@@ -3,7 +3,7 @@ import requests # <--- Nueva importación
 from insightface.app import FaceAnalysis
 import winsound
 
-from config import THRESHOLD, MODEL_NAME, CAMERA_INDEX, SKIP_FRAMES, COOLDOWN
+from config import THRESHOLD, MODEL_NAME, CAMERA_INDEX, SKIP_FRAMES, COOLDOWN, DET_THRESHOLD
 from src.face_recognizer import identify_face
 from src.camera import draw_result
 import numpy as np
@@ -66,16 +66,25 @@ def main():
 
         frame_count += 1
 
-        # Analizar uno de cada SKIP_FRAMES frames
+        # Cada SKIP_FRAMES: primero detección ligera, luego embedding solo si hay rostros confiables
         if frame_count % SKIP_FRAMES == 0:
-            last_faces = app.get(frame)
+            # CAPA 1: detección ligera (solo bounding boxes, sin embedding)
+            bboxes, _ = app.det_model.detect(frame, input_size=(640, 640))
+            # Filtrar solo detecciones que superen el umbral de confianza
+            rostros_confiables = [b for b in bboxes if b[4] >= DET_THRESHOLD] if bboxes is not None else []
+
+            if len(rostros_confiables) > 0:
+                # CAPA 2: hay rostros confiables → ahora sí extraer embeddings completos
+                last_faces = app.get(frame)
+            else:
+                # Sin rostros confiables → limpiar resultado anterior
+                last_faces = []
 
         # Procesar cada cara detectada
         for face in last_faces:
             embedding = face.embedding
             name, score = identify_face(embedding, registered, THRESHOLD)
 
-            # Registrar asistencia si es conocido y no está en cooldown
             # Registrar asistencia si es conocido y no está en cooldown
             if name != "Desconocido":
                 from datetime import datetime
