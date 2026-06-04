@@ -189,58 +189,78 @@ def resumen_supervision(proyecto_id: Optional[int] = None):
     try:
         conn = get_connection()
         cursor = conn.cursor()
+
         query = """
-            SELECT p.id, p.codigo_alumno, p.nombres, p.apellidos, pr.nombre_proyecto, a.tipo, a.fecha_hora
+            WITH pares_asistencia AS (
+                SELECT 
+                    persona_id,
+                    tipo,
+                    fecha_hora AS entrada_hora,
+                    LEAD(tipo) OVER (PARTITION BY persona_id ORDER BY fecha_hora) AS siguiente_tipo,
+                    LEAD(fecha_hora) OVER (PARTITION BY persona_id ORDER BY fecha_hora) AS salida_hora
+                FROM asistencia
+            ),
+            horas_por_persona AS (
+                SELECT 
+                    persona_id,
+                    SUM(EXTRACT(EPOCH FROM (salida_hora - entrada_hora)) / 3600.0) AS horas
+                FROM pares_asistencia
+                WHERE tipo = 'entrada' AND siguiente_tipo = 'salida'
+                GROUP BY persona_id
+            ),
+            -- NUEVO: Sacamos la primera y última vez que el sistema vio a esta persona
+            extremos_asistencia AS (
+                SELECT 
+                    persona_id,
+                    MIN(fecha_hora) AS primera_vez,
+                    MAX(fecha_hora) AS ultima_vez
+                FROM asistencia
+                GROUP BY persona_id
+            )
+            SELECT 
+                p.codigo_alumno, 
+                p.nombres, 
+                p.apellidos, 
+                COALESCE(pr.nombre_proyecto, 'Sin proyecto') AS proyecto,
+                COALESCE(ROUND(hp.horas::numeric, 2), 0.0) AS horas_totales,
+                ea.primera_vez,
+                ea.ultima_vez
             FROM personas p
             LEFT JOIN proyectos pr ON p.proyecto_id = pr.id
-            LEFT JOIN asistencia a ON p.id = a.persona_id
+            LEFT JOIN horas_por_persona hp ON p.id = hp.persona_id
+            LEFT JOIN extremos_asistencia ea ON p.id = ea.persona_id
         """
+
         params = []
         if proyecto_id:
             query += " WHERE p.proyecto_id = %s"
             params.append(proyecto_id)
-        query += " ORDER BY p.id, a.fecha_hora ASC"
+
+        query += " ORDER BY p.id ASC"
 
         cursor.execute(query, tuple(params))
         rows = cursor.fetchall()
 
-        alumnos_map = {}
-        for row in rows:
-            p_id, codigo, nom, ape, proj_nom, tipo, f_hora = row
-            if p_id not in alumnos_map:
-                alumnos_map[p_id] = {
-                    "codigo_alumno": codigo,
-                    "nombres": nom,
-                    "apellidos": ape,
-                    "proyecto": proj_nom or "Sin proyecto",
-                    "asistencias_raw": []
-                }
-            if tipo and f_hora:
-                alumnos_map[p_id]["asistencias_raw"].append((tipo, f_hora))
-
         resumen = []
-        for p_id, info in alumnos_map.items():
-            horas_totales = 0.0
-            logs = info["asistencias_raw"]
-            i = 0
-            while i < len(logs):
-                tipo, hora = logs[i]
-                if tipo == "entrada" and (i + 1) < len(logs):
-                    sig_tipo, sig_hora = logs[i + 1]
-                    if sig_tipo == "salida":
-                        diff = sig_hora - hora
-                        horas_totales += diff.total_seconds() / 3600.0
-                        i += 2
-                        continue
-                i += 1
+        formato = "%d/%m/%Y, %I:%M %p"
+
+        for row in rows:
+            # Formateamos las fechas. Si es None (aún no asiste nunca), mandamos un texto vacío
+            primera = row[5].strftime(formato) if row[5] else "Aún sin asistencias"
+            ultima = row[6].strftime(formato) if row[6] else "---"
+
             resumen.append({
-                "codigo_alumno": info["codigo_alumno"],
-                "nombres": info["nombres"],
-                "apellidos": info["apellidos"],
-                "proyecto": info["proyecto"],
-                "horas_totales": round(horas_totales, 2)
+                "codigo_alumno": row[0],
+                "nombres": row[1],
+                "apellidos": row[2],
+                "proyecto": row[3],
+                "horas_totales": float(row[4]),
+                "primera_asistencia": primera,
+                "ultima_asistencia": ultima
             })
+
         return {"status": "ok", "data": resumen}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
