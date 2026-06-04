@@ -48,30 +48,38 @@ export default function Historial() {
       </div>
 
       {cargando ? <p>Cargando datos...</p> : (
-        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-          <thead>
-            <tr style={{ backgroundColor: "#f4f4f4", borderBottom: "2px solid #ddd" }}>
-              <th style={{ padding: "12px" }}>ID</th>
-              <th style={{ padding: "12px" }}>Código</th>
-              <th style={{ padding: "12px" }}>Nombre Completo</th>
-              <th style={{ padding: "12px" }}>Proyecto</th>
-              <th style={{ padding: "12px" }}>Tipo</th>
-              <th style={{ padding: "12px" }}>Fecha y Hora</th>
-            </tr>
-          </thead>
-          <tbody>
-            {registros.map((reg) => (
-              <tr key={reg.registro_id} style={{ borderBottom: "1px solid #ddd" }}>
-                <td style={{ padding: "12px" }}>{reg.registro_id}</td>
-                <td style={{ padding: "12px" }}>{reg.codigo_alumno}</td>
-                <td style={{ padding: "12px", fontWeight: "bold" }}>{reg.nombre_completo}</td>
-                <td style={{ padding: "12px" }}>{reg.proyecto}</td>
-                <td style={{ padding: "12px" }}>{reg.tipo}</td>
-                <td style={{ padding: "12px" }}>{new Date(reg.fecha_hora).toLocaleString("es-PE")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+<table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+  <thead>
+    <tr style={{ backgroundColor: "#f4f4f4", borderBottom: "2px solid #ddd" }}>
+      <th style={{ padding: "12px" }}>ID</th>
+      <th style={{ padding: "12px" }}>Código</th>
+      <th style={{ padding: "12px" }}>Nombre Completo</th>
+      <th style={{ padding: "12px" }}>Proyecto</th>
+      <th style={{ padding: "12px" }}>Hora Entrada</th>
+      <th style={{ padding: "12px" }}>Hora Salida</th>
+    </tr>
+  </thead>
+  <tbody>
+    {registros.map((reg) => (
+      <tr key={reg.id} style={{ borderBottom: "1px solid #ddd" }}>
+        <td style={{ padding: "12px" }}>{reg.id}</td>
+        <td style={{ padding: "12px" }}>{reg.codigo}</td>
+        <td style={{ padding: "12px", fontWeight: "bold" }}>{reg.nombre_completo}</td>
+        <td style={{ padding: "12px" }}>{reg.proyecto}</td>
+
+        {/* Columna Entrada: En verde para distinguirla rápido */}
+        <td style={{ padding: "12px", color: "#137333", fontWeight: "bold" }}>
+          {reg.entrada}
+        </td>
+
+        {/* Columna Salida: Naranja si no ha salido, Gris si ya salió */}
+        <td style={{ padding: "12px", color: reg.salida.includes("Aún") ? "#e37400" : "#555" }}>
+          {reg.salida}
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
       )}
     </div>
   );

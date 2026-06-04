@@ -170,49 +170,77 @@ def get_ultimo_estado_asistencia(persona_id):
 def get_historial_asistencia(limite=50, texto_busqueda=None, fecha=None):
     conn = None
     cursor = None
-    historial = []
     try:
         conn = get_connection()
         cursor = conn.cursor()
 
+        # El corazón de la consulta: Emparejamos eventos con Window Functions (LEAD)
         query = """
-            SELECT a.id, p.codigo_alumno, p.nombres, p.apellidos, pr.nombre_proyecto, a.tipo, a.fecha_hora
-            FROM asistencia a
-            JOIN personas p ON a.persona_id = p.id
-            LEFT JOIN proyectos pr ON p.proyecto_id = pr.id
+            WITH eventos_emparejados AS (
+                SELECT 
+                    a.id,
+                    p.codigo_alumno,
+                    p.nombres || ' ' || p.apellidos AS nombre_completo,
+                    COALESCE(pr.nombre_proyecto, 'Sin proyecto') AS proyecto,
+                    a.tipo,
+                    a.fecha_hora AS entrada_hora,
+                    LEAD(a.tipo) OVER (PARTITION BY a.persona_id ORDER BY a.fecha_hora) AS siguiente_tipo,
+                    LEAD(a.fecha_hora) OVER (PARTITION BY a.persona_id ORDER BY a.fecha_hora) AS salida_hora
+                FROM asistencia a
+                JOIN personas p ON a.persona_id = p.id
+                LEFT JOIN proyectos pr ON p.proyecto_id = pr.id
+            ),
+            pares_filtrados AS (
+                SELECT 
+                    id,
+                    codigo_alumno,
+                    nombre_completo,
+                    proyecto,
+                    entrada_hora,
+                    -- Si el evento inmediato es 'salida', tomamos su hora. Si no, es NULL (sigue en el lab)
+                    CASE WHEN siguiente_tipo = 'salida' THEN salida_hora ELSE NULL END AS salida_hora
+                FROM eventos_emparejados
+                WHERE tipo = 'entrada'
+            )
+            SELECT * FROM pares_filtrados
+            WHERE 1=1
         """
-        condiciones = []
-        parametros = []
+        params = []
 
+        # Los filtros se aplican DESPUÉS de emparejar, para no romper las parejas
         if texto_busqueda:
-            condiciones.append("(p.nombres ILIKE %s OR p.apellidos ILIKE %s OR p.codigo_alumno ILIKE %s)")
-            parametros.extend([f"%{texto_busqueda}%", f"%{texto_busqueda}%", f"%{texto_busqueda}%"])
+            query += " AND (codigo_alumno ILIKE %s OR nombre_completo ILIKE %s)"
+            params.extend([f"%{texto_busqueda}%", f"%{texto_busqueda}%"])
 
         if fecha:
-            condiciones.append("DATE(a.fecha_hora) = %s")
-            parametros.append(fecha)
+            # Asume que el filtro de fecha de React envía formato 'YYYY-MM-DD'
+            query += " AND DATE(entrada_hora) = %s"
+            params.append(fecha)
 
-        if condiciones:
-            query += " WHERE " + " AND ".join(condiciones)
+        query += " ORDER BY entrada_hora DESC LIMIT %s"
+        params.append(limite)
 
-        query += " ORDER BY a.fecha_hora DESC LIMIT %s"
-        parametros.append(limite)
-
-        cursor.execute(query, tuple(parametros))
+        cursor.execute(query, tuple(params))
         rows = cursor.fetchall()
 
+        resultados = []
         for row in rows:
-            historial.append({
-                "registro_id": row[0],
-                "codigo_alumno": row[1],
-                "nombre_completo": f"{row[2]} {row[3]}",
-                "proyecto": row[4] or "Sin proyecto",
-                "tipo": row[5],
-                "fecha_hora": row[6].isoformat()
+            # Formateamos las fechas directamente en Python para que React no batalle
+            formato = "%d/%m/%Y, %I:%M:%S %p"
+            resultados.append({
+                "id": row[0],
+                "codigo": row[1],
+                "nombre_completo": row[2],
+                "proyecto": row[3],
+                "entrada": row[4].strftime(formato) if row[4] else "---",
+                "salida": row[5].strftime(formato) if row[5] else "Aún en laboratorio..."
             })
-    except psycopg2.Error as e:
-        print(f"[ERROR BD] Error al obtener el historial filtrado: {e}")
+
+        return resultados
+
+    except Exception as e:
+        print(f"[ERROR BD] {e}")
+        return []
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
-    return historial
