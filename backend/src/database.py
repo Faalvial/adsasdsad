@@ -78,7 +78,7 @@ def load_embeddings():
     return registered
 
 
-def save_persona(codigo_alumno, nombres, apellidos, proyecto_id, embedding):
+def save_persona(dni, codigo_alumno, nombres, apellidos, proyecto_id, embedding):
     conn = None
     cursor = None
     try:
@@ -87,10 +87,10 @@ def save_persona(codigo_alumno, nombres, apellidos, proyecto_id, embedding):
         emb_bytes = embedding.astype(np.float32).tobytes()
         cursor.execute(
             """
-            INSERT INTO personas (codigo_alumno, nombres, apellidos, proyecto_id, embedding) 
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO personas (dni, codigo_alumno, nombres, apellidos, proyecto_id, embedding) 
+            VALUES (%s, %s, %s, %s, %s, %s)
             """,
-            (codigo_alumno, nombres, apellidos, proyecto_id, psycopg2.Binary(emb_bytes))
+            (dni, codigo_alumno, nombres, apellidos, proyecto_id, psycopg2.Binary(emb_bytes))
         )
         conn.commit()
         return True
@@ -176,35 +176,30 @@ def get_historial_asistencia(limite=50, texto_busqueda=None, fecha=None):
 
         # El corazón de la consulta: Emparejamos eventos con Window Functions (LEAD)
         query = """
-            WITH eventos_emparejados AS (
-                SELECT 
-                    a.id,
-                    p.codigo_alumno,
-                    p.nombres || ' ' || p.apellidos AS nombre_completo,
-                    COALESCE(pr.nombre_proyecto, 'Sin proyecto') AS proyecto,
-                    a.tipo,
-                    a.fecha_hora AS entrada_hora,
-                    LEAD(a.tipo) OVER (PARTITION BY a.persona_id ORDER BY a.fecha_hora) AS siguiente_tipo,
-                    LEAD(a.fecha_hora) OVER (PARTITION BY a.persona_id ORDER BY a.fecha_hora) AS salida_hora
-                FROM asistencia a
-                JOIN personas p ON a.persona_id = p.id
-                LEFT JOIN proyectos pr ON p.proyecto_id = pr.id
-            ),
-            pares_filtrados AS (
-                SELECT 
-                    id,
-                    codigo_alumno,
-                    nombre_completo,
-                    proyecto,
-                    entrada_hora,
-                    -- Si el evento inmediato es 'salida', tomamos su hora. Si no, es NULL (sigue en el lab)
-                    CASE WHEN siguiente_tipo = 'salida' THEN salida_hora ELSE NULL END AS salida_hora
-                FROM eventos_emparejados
-                WHERE tipo = 'entrada'
-            )
-            SELECT * FROM pares_filtrados
-            WHERE 1=1
-        """
+                    WITH eventos_emparejados AS (
+                        SELECT 
+                            a.id,
+                            p.dni,
+                            p.codigo_alumno,
+                            p.nombres || ' ' || p.apellidos AS nombre_completo,
+                            COALESCE(pr.nombre_proyecto, 'Sin proyecto') AS proyecto,
+                            a.tipo,
+                            a.fecha_hora AS entrada_hora,
+                            LEAD(a.tipo) OVER (PARTITION BY a.persona_id ORDER BY a.fecha_hora) AS siguiente_tipo,
+                            LEAD(a.fecha_hora) OVER (PARTITION BY a.persona_id ORDER BY a.fecha_hora) AS salida_hora
+                        FROM asistencia a
+                        JOIN personas p ON a.persona_id = p.id
+                        LEFT JOIN proyectos pr ON p.proyecto_id = pr.id
+                    ),
+                    pares_filtrados AS (
+                        SELECT 
+                            id, dni, codigo_alumno, nombre_completo, proyecto, entrada_hora,
+                            CASE WHEN siguiente_tipo = 'salida' THEN salida_hora ELSE NULL END AS salida_hora
+                        FROM eventos_emparejados
+                        WHERE tipo = 'entrada'
+                    )
+                    SELECT * FROM pares_filtrados WHERE 1=1
+                """
         params = []
 
         # Los filtros se aplican DESPUÉS de emparejar, para no romper las parejas
@@ -225,15 +220,15 @@ def get_historial_asistencia(limite=50, texto_busqueda=None, fecha=None):
 
         resultados = []
         for row in rows:
-            # Formateamos las fechas directamente en Python para que React no batalle
             formato = "%d/%m/%Y, %I:%M:%S %p"
             resultados.append({
                 "id": row[0],
-                "codigo": row[1],
-                "nombre_completo": row[2],
-                "proyecto": row[3],
-                "entrada": row[4].strftime(formato) if row[4] else "---",
-                "salida": row[5].strftime(formato) if row[5] else "Aún en laboratorio..."
+                "dni": row[1] if row[1] else "---",
+                "codigo": row[2],
+                "nombre_completo": row[3],
+                "proyecto": row[4],
+                "entrada": row[5].strftime(formato) if row[5] else "---",
+                "salida": row[6].strftime(formato) if row[6] else "Aún en laboratorio..."
             })
 
         return resultados

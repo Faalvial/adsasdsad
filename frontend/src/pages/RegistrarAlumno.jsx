@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 
 export default function RegistrarAlumno() {
   const [proyectos, setProyectos] = useState([]);
-  const [formData, setFormData] = useState({ codigo_alumno: "", nombres: "", apellidos: "", proyecto_id: "" });
+  // Añadido: dni en el estado inicial
+  const [formData, setFormData] = useState({ dni: "", codigo_alumno: "", nombres: "", apellidos: "", proyecto_id: "" });
   const [imagenes, setImagenes] = useState([]);
   const [estado, setEstado] = useState({ loading: false, error: null, success: null });
 
@@ -97,7 +98,8 @@ export default function RegistrarAlumno() {
 
       if (res.ok) {
         setEstado({ loading: false, error: null, success: data.mensaje });
-        setFormData({ codigo_alumno: "", nombres: "", apellidos: "", proyecto_id: "" });
+        // Limpiar el DNI también al terminar el registro
+        setFormData({ dni: "", codigo_alumno: "", nombres: "", apellidos: "", proyecto_id: "" });
         setImagenes([]);
       } else {
         setEstado({ loading: false, error: data.detail || "Error en el servidor", success: null });
@@ -119,6 +121,13 @@ export default function RegistrarAlumno() {
         {/* TARJETA IZQUIERDA: FORMULARIO */}
         <div style={{ flex: "1", minWidth: "300px", backgroundColor: "#ffffff", borderRadius: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #e2e8f0", padding: "25px" }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+
+            {/* NUEVO CAMPO: DNI */}
+            <div>
+              <label style={labelStyle}>DNI</label>
+              <input type="text" name="dni" maxLength="8" value={formData.dni} onChange={handleChange} required style={inputStyle} />
+            </div>
+
             <div>
               <label style={labelStyle}>Código de Alumno</label>
               <input type="text" name="codigo_alumno" value={formData.codigo_alumno} onChange={handleChange} required style={inputStyle} />

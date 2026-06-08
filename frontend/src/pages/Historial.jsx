@@ -27,6 +27,13 @@ export default function Historial() {
     }
   };
 
+  // NUEVO: Función para descargar el CSV
+  const descargarCSV = () => {
+    let url = "http://localhost:8000/api/v1/reportes/exportar";
+    if (fecha) url += `?fecha=${fecha}`;
+    window.open(url, "_blank");
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => {
       cargarHistorial();
@@ -65,6 +72,26 @@ export default function Historial() {
             <option value={50}>50 registros</option>
             <option value={100}>100 registros</option>
           </select>
+
+          {/* NUEVO: Botón de Exportar */}
+          <button
+            onClick={descargarCSV}
+            style={{
+              padding: "10px 15px",
+              backgroundColor: "#10b981",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              fontWeight: "600",
+              cursor: "pointer",
+              marginLeft: "auto",
+              transition: "opacity 0.2s"
+            }}
+            onMouseOver={(e) => e.target.style.opacity = 0.85}
+            onMouseOut={(e) => e.target.style.opacity = 1}
+          >
+            ↓ Exportar CSV
+          </button>
         </div>
 
         {/* ZONA DE DATOS (O ESTADO DE CARGA) */}
@@ -78,6 +105,7 @@ export default function Historial() {
               <thead>
                 <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
                   <th style={{ padding: "14px 20px", color: "#64748b", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>ID</th>
+                  <th style={{ padding: "14px 20px", color: "#64748b", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>DNI</th>
                   <th style={{ padding: "14px 20px", color: "#64748b", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>Código</th>
                   <th style={{ padding: "14px 20px", color: "#64748b", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>Nombre Completo</th>
                   <th style={{ padding: "14px 20px", color: "#64748b", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>Proyecto</th>
@@ -94,6 +122,7 @@ export default function Historial() {
                   registros.map((reg, index) => (
                     <tr key={reg.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
                       <td style={{ padding: "14px 20px", color: "#94a3b8" }}>{index + 1}</td>
+                      <td style={{ padding: "14px 20px", color: "#475569", fontWeight: "500" }}>{reg.dni}</td>
                       <td style={{ padding: "14px 20px", color: "#1e293b", fontFamily: "monospace", fontSize: "0.9rem" }}>{reg.codigo}</td>
                       <td style={{ padding: "14px 20px", fontWeight: "600", color: "#1e293b" }}>{reg.nombre_completo}</td>
                       <td style={{ padding: "14px 20px", color: "#1e293b" }}>{reg.proyecto}</td>
@@ -102,7 +131,7 @@ export default function Historial() {
                         {reg.entrada}
                       </td>
 
-{/* Hora Salida: Naranja si sigue adentro, Rojo mate si ya salió */}
+                      {/* Hora Salida: Naranja si sigue adentro, Rojo mate si ya salió */}
                       <td style={{
                         padding: "14px 20px",
                         color: reg.salida.includes("Aún") ? "#d97706" : "#dc2626",

@@ -64,6 +64,7 @@ export default function Supervisar() {
             <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.95rem" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
+                  <th style={{ padding: "14px 20px", color: "#64748b", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>DNI</th>
                   <th style={{ padding: "14px 20px", color: "#64748b", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>Código</th>
                   <th style={{ padding: "14px 20px", color: "#64748b", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>Nombre Completo</th>
                   <th style={{ padding: "14px 20px", color: "#64748b", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.05em" }}>Proyecto</th>
@@ -78,6 +79,7 @@ export default function Supervisar() {
                 ) : (
                   resumen.map((reg, idx) => (
                     <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "14px 20px", color: "#475569", fontWeight: "500" }}>{reg.dni}</td>
                       <td style={{ padding: "14px 20px", color: "#1e293b", fontFamily: "monospace", fontSize: "0.9rem" }}>{reg.codigo_alumno}</td>
                       <td style={{ padding: "14px 20px", fontWeight: "600", color: "#1e293b" }}>{reg.nombres} {reg.apellidos}</td>
                       <td style={{ padding: "14px 20px", color: "#1e293b" }}>{reg.proyecto}</td>

@@ -11,6 +11,8 @@ import numpy as np
 import subprocess
 import sys
 from insightface.app import FaceAnalysis
+import csv
+import io
 
 # Variable para mantener el rastro del proceso de fondo
 proceso_main = None
@@ -62,6 +64,7 @@ class ProyectoRequest(BaseModel):
 
 
 class AlumnoRegistroRequest(BaseModel):
+    dni: str  # <--- NUEVO CAMPO
     codigo_alumno: str
     nombres: str
     apellidos: str
@@ -164,7 +167,9 @@ def registrar_alumno(payload: AlumnoRegistroRequest):
             raise HTTPException(status_code=400, detail=f"Error en procesamiento de toma {idx + 1}: {str(e)}")
 
     embedding_promedio = np.mean(embeddings, axis=0)
+    # Pasamos el DNI a la base de datos
     exito = save_persona(
+        dni=payload.dni,
         codigo_alumno=payload.codigo_alumno,
         nombres=payload.nombres,
         apellidos=payload.apellidos,
@@ -172,9 +177,8 @@ def registrar_alumno(payload: AlumnoRegistroRequest):
         embedding=embedding_promedio
     )
     if exito:
-        return {"status": "ok", "mensaje": f"Alumno {payload.codigo_alumno} enrolado correctamente"}
+        return {"status": "ok", "mensaje": f"Alumno {payload.nombres} enrolado correctamente"}
     raise HTTPException(status_code=500, detail="Error de inserción en el almacenamiento relacional")
-
 
 @app.get("/api/v1/reportes/asistencia")
 def reporte_asistencia(limite: int = 50, filtro: str = None, fecha: str = None):
@@ -191,45 +195,29 @@ def resumen_supervision(proyecto_id: Optional[int] = None):
         cursor = conn.cursor()
 
         query = """
-            WITH pares_asistencia AS (
-                SELECT 
-                    persona_id,
-                    tipo,
-                    fecha_hora AS entrada_hora,
-                    LEAD(tipo) OVER (PARTITION BY persona_id ORDER BY fecha_hora) AS siguiente_tipo,
-                    LEAD(fecha_hora) OVER (PARTITION BY persona_id ORDER BY fecha_hora) AS salida_hora
-                FROM asistencia
-            ),
-            horas_por_persona AS (
-                SELECT 
-                    persona_id,
-                    SUM(EXTRACT(EPOCH FROM (salida_hora - entrada_hora)) / 3600.0) AS horas
-                FROM pares_asistencia
-                WHERE tipo = 'entrada' AND siguiente_tipo = 'salida'
-                GROUP BY persona_id
-            ),
-            -- NUEVO: Sacamos la primera y última vez que el sistema vio a esta persona
-            extremos_asistencia AS (
-                SELECT 
-                    persona_id,
-                    MIN(fecha_hora) AS primera_vez,
-                    MAX(fecha_hora) AS ultima_vez
-                FROM asistencia
-                GROUP BY persona_id
-            )
-            SELECT 
-                p.codigo_alumno, 
-                p.nombres, 
-                p.apellidos, 
-                COALESCE(pr.nombre_proyecto, 'Sin proyecto') AS proyecto,
-                COALESCE(ROUND(hp.horas::numeric, 2), 0.0) AS horas_totales,
-                ea.primera_vez,
-                ea.ultima_vez
-            FROM personas p
-            LEFT JOIN proyectos pr ON p.proyecto_id = pr.id
-            LEFT JOIN horas_por_persona hp ON p.id = hp.persona_id
-            LEFT JOIN extremos_asistencia ea ON p.id = ea.persona_id
-        """
+                    WITH pares_asistencia AS (
+                        -- ... (tu código CTE intacto) ...
+                    ),
+                    horas_por_persona AS (
+                        -- ... (tu código CTE intacto) ...
+                    ),
+                    extremos_asistencia AS (
+                        -- ... (tu código CTE intacto) ...
+                    )
+                    SELECT 
+                        p.dni,
+                        p.codigo_alumno, 
+                        p.nombres, 
+                        p.apellidos, 
+                        COALESCE(pr.nombre_proyecto, 'Sin proyecto') AS proyecto,
+                        COALESCE(ROUND(hp.horas::numeric, 2), 0.0) AS horas_totales,
+                        ea.primera_vez,
+                        ea.ultima_vez
+                    FROM personas p
+                    LEFT JOIN proyectos pr ON p.proyecto_id = pr.id
+                    LEFT JOIN horas_por_persona hp ON p.id = hp.persona_id
+                    LEFT JOIN extremos_asistencia ea ON p.id = ea.persona_id
+                """
 
         params = []
         if proyecto_id:
@@ -245,16 +233,16 @@ def resumen_supervision(proyecto_id: Optional[int] = None):
         formato = "%d/%m/%Y, %I:%M %p"
 
         for row in rows:
-            # Formateamos las fechas. Si es None (aún no asiste nunca), mandamos un texto vacío
-            primera = row[5].strftime(formato) if row[5] else "Aún sin asistencias"
-            ultima = row[6].strftime(formato) if row[6] else "---"
+            primera = row[6].strftime(formato) if row[6] else "Aún sin asistencias"
+            ultima = row[7].strftime(formato) if row[7] else "---"
 
             resumen.append({
-                "codigo_alumno": row[0],
-                "nombres": row[1],
-                "apellidos": row[2],
-                "proyecto": row[3],
-                "horas_totales": float(row[4]),
+                "dni": row[0] if row[0] else "---",
+                "codigo_alumno": row[1],
+                "nombres": row[2],
+                "apellidos": row[3],
+                "proyecto": row[4],
+                "horas_totales": float(row[5]),
                 "primera_asistencia": primera,
                 "ultima_asistencia": ultima
             })
@@ -302,3 +290,63 @@ def video_feed():
         media_type="multipart/x-mixed-replace; boundary=frame",
         headers={"Access-Control-Allow-Origin": "*"} # Permiso vital para que el frontend pueda recortar la foto
     )
+
+
+@app.get("/api/v1/reportes/exportar")
+def exportar_historial_csv(fecha: str = None):
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        query = """
+            WITH eventos AS (
+                SELECT 
+                    a.id, p.dni, p.codigo_alumno, p.nombres || ' ' || p.apellidos AS nombre_completo,
+                    COALESCE(pr.nombre_proyecto, 'Sin proyecto') AS proyecto, a.tipo, a.fecha_hora AS entrada,
+                    LEAD(a.tipo) OVER (PARTITION BY a.persona_id ORDER BY a.fecha_hora) AS sig_tipo,
+                    LEAD(a.fecha_hora) OVER (PARTITION BY a.persona_id ORDER BY a.fecha_hora) AS salida
+                FROM asistencia a
+                JOIN personas p ON a.persona_id = p.id
+                LEFT JOIN proyectos pr ON p.proyecto_id = pr.id
+            )
+            SELECT dni, codigo_alumno, nombre_completo, proyecto, entrada, 
+                   CASE WHEN sig_tipo = 'salida' THEN salida ELSE NULL END AS salida
+            FROM eventos
+            WHERE tipo = 'entrada'
+        """
+        params = []
+        if fecha:
+            query += " AND DATE(entrada) = %s"
+            params.append(fecha)
+
+        query += " ORDER BY entrada DESC"
+
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter=',', quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(["DNI", "Código de Alumno", "Nombre Completo", "Proyecto", "Hora de Entrada", "Hora de Salida"])
+
+        formato = "%d/%m/%Y %H:%M:%S"
+        for row in rows:
+            entrada_str = row[4].strftime(formato) if row[4] else "---"
+            salida_str = row[5].strftime(formato) if row[5] else "Aún en laboratorio"
+            # row[0] es DNI, si es None enviamos vacío
+            dni_str = row[0] if row[0] else "Sin DNI"
+            writer.writerow([dni_str, row[1], row[2], row[3], entrada_str, salida_str])
+
+        output.seek(0)
+
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=historial_asistencia_{fecha or 'completo'}.csv"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
