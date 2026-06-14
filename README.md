@@ -49,7 +49,7 @@ python -m venv .venv
 pip install -r requirements.txt
 
 # Iniciar el servidor API
-uvicorn api.server:app --reload
+uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
 #### Dependencias principales
@@ -76,7 +76,7 @@ cd frontend
 npm install
 
 # Iniciar el servidor de desarrollo
-npm run dev
+npm run dev -- --host
 ```
 
 ---
