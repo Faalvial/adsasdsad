@@ -4,6 +4,7 @@ import Home from "./pages/Home";
 import RegistrarAlumno from "./pages/RegistrarAlumno";
 import Historial from "./pages/Historial";
 import Supervisar from "./pages/Supervisar";
+import GestionBD from "./pages/GestionBD";
 
 function Layout() {
   const [sistemaActivo, setSistemaActivo] = useState(false);
@@ -76,6 +77,7 @@ function Layout() {
           <Link to="/registrar" style={navStyle}>Registrar Alumno</Link>
           <Link to="/historial" style={navStyle}>Historial Asistencias</Link>
           <Link to="/supervisar" style={navStyle}>Supervisar</Link>
+          <Link to="/gestion" style={navStyle}>Gestión BD</Link>
         </div>
 
         {/* SWITCHER DE ESTADO DEL MAIN.PY */}
@@ -113,6 +115,7 @@ function Layout() {
         <Route path="/registrar" element={<RegistrarAlumno />} />
         <Route path="/historial" element={<Historial />} />
         <Route path="/supervisar" element={<Supervisar />} />
+        <Route path="/gestion" element={<GestionBD />} />
       </Routes>
 
     </div>

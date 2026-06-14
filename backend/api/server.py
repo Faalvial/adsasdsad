@@ -29,7 +29,13 @@ from src.database import (
     get_historial_asistencia,
     get_proyectos,
     save_proyecto,
-    save_persona
+    save_persona,
+    update_proyecto,
+    delete_proyecto,
+    get_personas_info,
+    update_persona,
+    delete_persona,
+    get_personas_en_laboratorio
 )
 
 app = FastAPI(title="API Control de Asistencia - Tech Lab")
@@ -61,6 +67,18 @@ class PayloadAsistencia(BaseModel):
 class ProyectoRequest(BaseModel):
     nombre_proyecto: str
     descripcion: Optional[str] = ""
+
+class ProyectoUpdateRequest(BaseModel):
+    nombre_proyecto: str
+    descripcion: Optional[str] = ""
+
+class PersonaUpdateRequest(BaseModel):
+    dni: str
+    codigo_alumno: str
+    nombres: str
+    apellidos: str
+    proyecto_id: Optional[int] = None
+    estado_activo: bool
 
 
 class AlumnoRegistroRequest(BaseModel):
@@ -112,6 +130,22 @@ def crear_proyecto(payload: ProyectoRequest):
     if id_nuevo:
         return {"status": "ok", "proyecto_id": id_nuevo, "mensaje": "Proyecto creado con éxito"}
     raise HTTPException(status_code=400, detail="No se pudo registrar el proyecto")
+
+
+@app.put("/api/v1/proyectos/{proyecto_id}")
+def modificar_proyecto(proyecto_id: int, payload: ProyectoUpdateRequest):
+    exito = update_proyecto(proyecto_id, payload.nombre_proyecto, payload.descripcion)
+    if exito:
+        return {"status": "ok", "mensaje": "Proyecto actualizado"}
+    raise HTTPException(status_code=400, detail="Error al actualizar proyecto")
+
+
+@app.delete("/api/v1/proyectos/{proyecto_id}")
+def eliminar_proyecto(proyecto_id: int):
+    exito = delete_proyecto(proyecto_id)
+    if exito:
+        return {"status": "ok", "mensaje": "Proyecto eliminado"}
+    raise HTTPException(status_code=400, detail="Error al eliminar proyecto")
 
 
 @app.get("/api/v1/embeddings")
@@ -180,10 +214,39 @@ def registrar_alumno(payload: AlumnoRegistroRequest):
         return {"status": "ok", "mensaje": f"Alumno {payload.nombres} enrolado correctamente"}
     raise HTTPException(status_code=500, detail="Error de inserción en el almacenamiento relacional")
 
+
+@app.get("/api/v1/personas")
+def listar_personas():
+    return {"status": "ok", "data": get_personas_info()}
+
+
+@app.put("/api/v1/personas/{persona_id}")
+def modificar_persona(persona_id: int, payload: PersonaUpdateRequest):
+    exito = update_persona(
+        persona_id, payload.dni, payload.codigo_alumno, 
+        payload.nombres, payload.apellidos, payload.proyecto_id, payload.estado_activo
+    )
+    if exito:
+        return {"status": "ok", "mensaje": "Persona actualizada"}
+    raise HTTPException(status_code=400, detail="Error al actualizar persona")
+
+
+@app.delete("/api/v1/personas/{persona_id}")
+def eliminar_persona(persona_id: int):
+    exito = delete_persona(persona_id)
+    if exito:
+        return {"status": "ok", "mensaje": "Persona eliminada"}
+    raise HTTPException(status_code=400, detail="Error al eliminar persona")
+
 @app.get("/api/v1/reportes/asistencia")
 def reporte_asistencia(limite: int = 50, filtro: str = None, fecha: str = None):
     registros = get_historial_asistencia(limite=limite, texto_busqueda=filtro, fecha=fecha)
     return {"status": "ok", "total_registros": len(registros), "data": registros}
+
+@app.get("/api/v1/asistencia/en-laboratorio")
+def personas_en_laboratorio():
+    data = get_personas_en_laboratorio()
+    return {"status": "ok", "data": data}
 
 
 @app.get("/api/v1/supervision/resumen")

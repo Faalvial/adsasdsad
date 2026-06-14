@@ -5,7 +5,7 @@ from insightface.app import FaceAnalysis
 
 from config import THRESHOLD, MODEL_NAME, CAMERA_INDEX, SKIP_FRAMES, COOLDOWN, DET_THRESHOLD
 from src.face_recognizer import identify_face
-from src.camera import draw_result
+
 import numpy as np
 
 def main():

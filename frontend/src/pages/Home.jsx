@@ -1,21 +1,78 @@
+import { useState, useEffect } from "react";
+
 export default function Home() {
+  const [enLaboratorio, setEnLaboratorio] = useState([]);
+  const [cargando, setCargando] = useState(true);
+
+  const cargarEnLaboratorio = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/asistencia/en-laboratorio`);
+      const data = await res.json();
+      if (data.status === "ok") {
+        setEnLaboratorio(data.data);
+      }
+    } catch (err) {
+      console.error("Error cargando personas en laboratorio", err);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarEnLaboratorio();
+    // Refrescar cada 10 segundos
+    const interval = setInterval(cargarEnLaboratorio, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: "60vh", gap: "30px", marginTop: "20px" }}>
+      
+
+
       <div style={{
         backgroundColor: "#ffffff",
         borderRadius: "12px",
-        boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)",
+        boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)",
         border: "1px solid #e2e8f0",
-        padding: "50px",
-        textAlign: "center",
-        maxWidth: "600px",
-        width: "100%"
+        padding: "30px",
+        width: "100%",
+        maxWidth: "900px"
       }}>
-        <h1 style={{ color: "#1e293b", margin: "0 0 15px 0", fontSize: "2.2rem" }}>Panel de Control</h1>
-        <p style={{ color: "#64748b", fontSize: "1.1rem", lineHeight: "1.6", margin: 0 }}>
-          Sistema de gestión de asistencia por reconocimiento facial. Seleccione una opción en el menú superior para comenzar a operar.
-        </p>
+        <h2 style={{ color: "#1e293b", marginTop: 0, borderBottom: "1px solid #e2e8f0", paddingBottom: "15px" }}>
+          Actualmente en el Laboratorio ({enLaboratorio.length})
+        </h2>
+        
+        {cargando && enLaboratorio.length === 0 ? (
+          <p style={{ textAlign: "center", color: "#64748b" }}>Cargando datos...</p>
+        ) : enLaboratorio.length === 0 ? (
+          <p style={{ textAlign: "center", color: "#64748b", padding: "20px" }}>No hay personas en el laboratorio en este momento.</p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
+                  <th style={{ padding: "12px", color: "#64748b", fontWeight: "600" }}>Código</th>
+                  <th style={{ padding: "12px", color: "#64748b", fontWeight: "600" }}>Nombre Completo</th>
+                  <th style={{ padding: "12px", color: "#64748b", fontWeight: "600" }}>Proyecto</th>
+                  <th style={{ padding: "12px", color: "#64748b", fontWeight: "600" }}>Hora de Entrada</th>
+                </tr>
+              </thead>
+              <tbody>
+                {enLaboratorio.map((p, idx) => (
+                  <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "12px", color: "#1e293b", fontFamily: "monospace" }}>{p.codigo_alumno}</td>
+                    <td style={{ padding: "12px", fontWeight: "bold", color: "#1e293b" }}>{p.nombres} {p.apellidos}</td>
+                    <td style={{ padding: "12px", color: "#475569" }}>{p.proyecto}</td>
+                    <td style={{ padding: "12px", color: "#059669", fontWeight: "500" }}>{p.hora_entrada}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
     </div>
   );
 }

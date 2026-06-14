@@ -239,3 +239,163 @@ def get_historial_asistencia(limite=50, texto_busqueda=None, fecha=None):
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
+
+
+def update_proyecto(proyecto_id, nombre_proyecto, descripcion=""):
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE proyectos SET nombre_proyecto = %s, descripcion = %s WHERE id = %s",
+            (nombre_proyecto, descripcion, proyecto_id)
+        )
+        conn.commit()
+        return True
+    except psycopg2.Error as e:
+        if conn: conn.rollback()
+        print(f"[ERROR BD] Error al actualizar proyecto: {e}")
+        return False
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+
+def delete_proyecto(proyecto_id):
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM proyectos WHERE id = %s", (proyecto_id,))
+        conn.commit()
+        return True
+    except psycopg2.Error as e:
+        if conn: conn.rollback()
+        print(f"[ERROR BD] Error al eliminar proyecto: {e}")
+        return False
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+
+def get_personas_info():
+    conn = None
+    cursor = None
+    personas = []
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        query = """
+            SELECT p.id, p.dni, p.codigo_alumno, p.nombres, p.apellidos, 
+                   p.proyecto_id, pr.nombre_proyecto, p.estado_activo
+            FROM personas p
+            LEFT JOIN proyectos pr ON p.proyecto_id = pr.id
+            ORDER BY p.id DESC
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        for row in rows:
+            personas.append({
+                "id": row[0],
+                "dni": row[1],
+                "codigo_alumno": row[2],
+                "nombres": row[3],
+                "apellidos": row[4],
+                "proyecto_id": row[5],
+                "proyecto_nombre": row[6],
+                "estado_activo": row[7]
+            })
+    except psycopg2.Error as e:
+        print(f"[ERROR BD] Error al listar personas: {e}")
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+    return personas
+
+
+def update_persona(persona_id, dni, codigo_alumno, nombres, apellidos, proyecto_id, estado_activo):
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE personas 
+            SET dni = %s, codigo_alumno = %s, nombres = %s, apellidos = %s, 
+                proyecto_id = %s, estado_activo = %s
+            WHERE id = %s
+            """,
+            (dni, codigo_alumno, nombres, apellidos, proyecto_id, estado_activo, persona_id)
+        )
+        conn.commit()
+        return True
+    except psycopg2.Error as e:
+        if conn: conn.rollback()
+        print(f"[ERROR BD] Error al actualizar persona: {e}")
+        return False
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+
+def delete_persona(persona_id):
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM personas WHERE id = %s", (persona_id,))
+        conn.commit()
+        return True
+    except psycopg2.Error as e:
+        if conn: conn.rollback()
+        print(f"[ERROR BD] Error al eliminar persona: {e}")
+        return False
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+
+def get_personas_en_laboratorio():
+    conn = None
+    cursor = None
+    en_lab = []
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        query = """
+            WITH ultimo_evento AS (
+                SELECT persona_id, tipo, fecha_hora,
+                       ROW_NUMBER() OVER (PARTITION BY persona_id ORDER BY fecha_hora DESC) as rn
+                FROM asistencia
+            )
+            SELECT p.dni, p.codigo_alumno, p.nombres, p.apellidos, 
+                   COALESCE(pr.nombre_proyecto, 'Sin proyecto') AS proyecto, 
+                   ue.fecha_hora
+            FROM ultimo_evento ue
+            JOIN personas p ON ue.persona_id = p.id
+            LEFT JOIN proyectos pr ON p.proyecto_id = pr.id
+            WHERE ue.rn = 1 AND ue.tipo = 'entrada'
+            ORDER BY ue.fecha_hora DESC
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        for row in rows:
+            formato = "%d/%m/%Y, %I:%M:%S %p"
+            en_lab.append({
+                "dni": row[0],
+                "codigo_alumno": row[1],
+                "nombres": row[2],
+                "apellidos": row[3],
+                "proyecto": row[4],
+                "hora_entrada": row[5].strftime(formato) if row[5] else "---"
+            })
+    except psycopg2.Error as e:
+        print(f"[ERROR BD] Error al buscar personas en el laboratorio: {e}")
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+    return en_lab
