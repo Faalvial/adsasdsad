@@ -1,7 +1,7 @@
 import cv2
 import requests # <--- Nueva importación
 from insightface.app import FaceAnalysis
-import winsound
+#import winsound
 
 from config import THRESHOLD, MODEL_NAME, CAMERA_INDEX, SKIP_FRAMES, COOLDOWN, DET_THRESHOLD
 from src.face_recognizer import identify_face
@@ -112,20 +112,20 @@ def main():
                         if respuesta.status_code == 200:
                             cooldown[name] = ahora
                             print(f"[OK] Asistencia enviada a la API: {name} - {ahora.strftime('%H:%M:%S')}")
-                            winsound.Beep(1500, 300)
+                            #winsound.Beep(1500, 300)
                         else:
                             print(f"[ERROR API] La API respondió con error: {respuesta.status_code}")
                     except requests.exceptions.RequestException as e:
                         print(f"[ERROR RED] No se pudo conectar con la API: {e}")
-            draw_result(frame, face.bbox, name, score)
+            #draw_result(frame, face.bbox, name, score)
 
-        cv2.imshow("Control de Asistencia", frame)
+        #cv2.imshow("Control de Asistencia", frame)
 
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
+        #if cv2.waitKey(1) & 0xFF == ord("q"):
+            #break
 
     cap.release()
-    cv2.destroyAllWindows()
+    #cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()

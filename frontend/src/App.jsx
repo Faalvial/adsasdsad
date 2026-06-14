@@ -15,7 +15,7 @@ function Layout() {
   const cambiarEstadoBackend = async (activar) => {
     setSistemaActivo(activar);
     try {
-      await fetch("http://localhost:8000/api/v1/sistema/estado", {
+      await fetch(`${import.meta.env.VITE_API_URL}/api/v1/sistema/estado`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ activo: activar })
@@ -54,7 +54,7 @@ function Layout() {
 
   const fetchEstado = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/v1/sistema/estado");
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/sistema/estado`);
       const data = await res.json();
       setSistemaActivo(data.activo);
     } catch (err) {}

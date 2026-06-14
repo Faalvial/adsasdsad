@@ -9,7 +9,7 @@ export default function Supervisar() {
 
   const cargarProyectos = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/v1/proyectos");
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/proyectos`);
       const data = await res.json();
       if (data.status === "ok") setProyectos(data.data);
     } catch (err) { console.error(err); }
@@ -18,7 +18,7 @@ export default function Supervisar() {
   const cargarResumen = async () => {
     setCargando(true);
     try {
-      let url = "http://localhost:8000/api/v1/supervision/resumen";
+      let url = `${import.meta.env.VITE_API_URL}/api/v1/supervision/resumen`;
       if (filtroProyecto) url += `?proyecto_id=${filtroProyecto}`;
 
       const res = await fetch(url);
