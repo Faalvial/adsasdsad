@@ -13,6 +13,8 @@ import sys
 from insightface.app import FaceAnalysis
 import csv
 import io
+import time
+from config import CAMERA_INDEX, RECONNECT_DELAY
 
 # Variable para mantener el rastro del proceso de fondo
 proceso_main = None
@@ -162,17 +164,42 @@ def obtener_embeddings():
 
 @app.post("/api/v1/asistencia/registrar")
 def registrar_asistencia(payload: PayloadAsistencia):
+    from datetime import datetime, date
     procesados = 0
     errores = []
+
     for face in payload.recognized_faces:
         persona_id = get_persona_id(face.nombre)
-        if persona_id:
-            ultimo_estado = get_ultimo_estado_asistencia(persona_id)
-            nuevo_estado = "salida" if ultimo_estado == "entrada" else "entrada"
-            save_asistencia(persona_id, nuevo_estado)
-            procesados += 1
-        else:
+        if not persona_id:
             errores.append(face.nombre)
+            continue
+
+        ultimo = get_ultimo_estado_asistencia(persona_id)
+
+        if ultimo is None:
+            # Nunca ha marcado → entrada
+            nuevo_estado = "entrada"
+
+        elif ultimo["tipo"] == "entrada":
+            fecha_ultimo = ultimo["fecha_hora"].date()
+            hoy = date.today()
+
+            if fecha_ultimo < hoy:
+                # Entrada de un día anterior sin salida → sesión abandonada
+                # Cerramos con salida igual a la entrada (suma 0) y marcamos nueva entrada
+                save_asistencia(persona_id, "salida", ultimo["fecha_hora"])
+                nuevo_estado = "entrada"
+            else:
+                # Entrada de hoy → salida normal
+                nuevo_estado = "salida"
+
+        else:
+            # Último fue salida → nueva entrada
+            nuevo_estado = "entrada"
+
+        save_asistencia(persona_id, nuevo_estado)
+        procesados += 1
+
     return {"status": "completado", "registros_guardados": procesados, "no_encontrados": errores}
 
 
@@ -320,29 +347,33 @@ def resumen_supervision(proyecto_id: Optional[int] = None):
 
 
 def generador_frames_rtsp():
-    """Conecta a la cámara y genera un flujo continuo de imágenes JPEG"""
-    # Usamos la cámara del laboratorio con el motor de red FFMPEG
+    """Conecta a la cámara y genera un flujo continuo de imágenes JPEG con reconexión automática"""
     cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_FFMPEG)
 
     if not cap.isOpened():
-        print("[ERROR] No se pudo conectar a la cámara para el streaming web")
-        return
+        print("[WARN] No se pudo conectar a la cámara inicialmente. Reintentando...")
 
-    try:
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
+    while True:
+        # Si la cámara no está abierta, intentar reconectar
+        if not cap.isOpened():
+            time.sleep(RECONNECT_DELAY)
+            cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_FFMPEG)
+            if not cap.isOpened():
+                print(f"[WARN] Reconexión fallida. Reintentando en {RECONNECT_DELAY}s...")
+                continue
+            print("[INFO] Cámara reconectada en video feed.")
 
-            _, buffer = cv2.imencode('.jpg', frame)
-            frame_bytes = buffer.tobytes()
+        ret, frame = cap.read()
+        if not ret:
+            print("[WARN] Video feed perdido. Intentando reconectar...")
+            cap.release()
+            continue  # vuelve al inicio, donde detecta que no está abierta y reintenta
 
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-    finally:
-        # Se ejecuta SIEMPRE que el cliente web (React) corta la conexión
-        print("[INFO] Cliente web desconectado. Apagando cámara...")
-        cap.release()
+        _, buffer = cv2.imencode('.jpg', frame)
+        frame_bytes = buffer.tobytes()
+
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
 
 @app.get("/api/v1/video_feed")

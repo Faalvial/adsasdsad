@@ -1,10 +1,12 @@
 import cv2
 import requests # <--- Nueva importación
 from insightface.app import FaceAnalysis
-#import winsound
+import winsound
+import time
 
-from config import THRESHOLD, MODEL_NAME, CAMERA_INDEX, SKIP_FRAMES, COOLDOWN, DET_THRESHOLD
+from config import THRESHOLD, MODEL_NAME, CAMERA_INDEX, SKIP_FRAMES, COOLDOWN, DET_THRESHOLD, RECONNECT_DELAY
 from src.face_recognizer import identify_face
+from src.camera import draw_result
 
 import numpy as np
 
@@ -56,13 +58,43 @@ def main():
     print("[INFO] Sistema iniciado. Presiona 'q' para salir.")
     frame_count = 0
     last_faces = []
-    cooldown = {}
+    active_presences = {}
+
+    def enviar_registro_api(name, score, action_label):
+        from datetime import datetime
+        ahora = datetime.now()
+        payload = {
+            "camera_id": "hikvision_lab",
+            "timestamp": ahora.isoformat(),
+            "recognized_faces": [{"nombre": name, "score": float(score)}]
+        }
+        try:
+            api_url = "http://localhost:8000/api/v1/asistencia/registrar"
+            respuesta = requests.post(api_url, json=payload, timeout=3)
+            if respuesta.status_code == 200:
+                print(f"[{action_label}] API confirmada: {name} - {ahora.strftime('%H:%M:%S')}")
+            else:
+                print(f"[ERROR API] La API respondió con error al registrar {action_label}: {respuesta.status_code}")
+        except requests.exceptions.RequestException as e:
+            print(f"[ERROR RED] No se pudo conectar con la API: {e}")
 
     while True:
         ret, frame = cap.read()
         if not ret:
-            print("[ERROR] No se pudo leer el frame")
-            break
+            print("[WARN] Cámara desconectada. Intentando reconectar...")
+            cap.release()
+
+            while True:
+                time.sleep(RECONNECT_DELAY)
+                cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_FFMPEG)
+                if cap.isOpened():
+                    print("[INFO] Cámara reconectada exitosamente.")
+                    frame_count = 0
+                    last_faces = []
+                    break
+                print(f"[WARN] Reconexión fallida. Reintentando en {RECONNECT_DELAY}s...")
+
+            continue
 
         frame_count += 1
 
@@ -81,43 +113,43 @@ def main():
                 last_faces = []
 
         # Procesar cada cara detectada
+        from datetime import datetime
+        ahora = datetime.now()
+        current_frame_names = set()
+
         for face in last_faces:
             embedding = face.embedding
             name, score = identify_face(embedding, registered, THRESHOLD)
 
-            # Registrar asistencia si es conocido y no está en cooldown
+            # Si es conocido, procesar su aparición
             if name != "Desconocido":
-                from datetime import datetime
-                ahora = datetime.now()
-                ultimo = cooldown.get(name)
-
-                if not ultimo or (ahora - ultimo).total_seconds() > COOLDOWN:
-                    # 1. Construir el payload JSON
-                    payload = {
-                        "camera_id": "hikvision_lab",
-                        "timestamp": ahora.isoformat(),
-                        "recognized_faces": [
-                            {
-                                "nombre": name,
-                                "score": float(score)  # Convertir a float nativo de Python
-                            }
-                        ]
-                    }
-
-                    # 2. Enviar a la API
+                current_frame_names.add(name)
+                
+                # Si es la primera vez que lo vemos en esta racha
+                if name not in active_presences:
+                    enviar_registro_api(name, score, "ENTRADA")
                     try:
-                        api_url = "http://localhost:8000/api/v1/asistencia/registrar"
-                        respuesta = requests.post(api_url, json=payload, timeout=3)
+                        winsound.Beep(1500, 300)
+                    except:
+                        pass
+                
+                # Actualizar siempre su tiempo de última vista
+                active_presences[name] = ahora
+            
+            draw_result(frame, face.bbox, name, score)
 
-                        if respuesta.status_code == 200:
-                            cooldown[name] = ahora
-                            print(f"[OK] Asistencia enviada a la API: {name} - {ahora.strftime('%H:%M:%S')}")
-                            #winsound.Beep(1500, 300)
-                        else:
-                            print(f"[ERROR API] La API respondió con error: {respuesta.status_code}")
-                    except requests.exceptions.RequestException as e:
-                        print(f"[ERROR RED] No se pudo conectar con la API: {e}")
-            #draw_result(frame, face.bbox, name, score)
+        # Revisar quiénes han desaparecido del frame prolongadamente
+        nombres_a_eliminar = []
+        for name, last_seen in active_presences.items():
+            if name not in current_frame_names:
+                # Si han pasado más de COOLDOWN segundos sin ver a esta persona
+                if (ahora - last_seen).total_seconds() > COOLDOWN:
+                    enviar_registro_api(name, 1.0, "SALIDA")
+                    nombres_a_eliminar.append(name)
+                    
+        # Limpiar diccionario para liberar memoria y reiniciar el ciclo
+        for name in nombres_a_eliminar:
+            del active_presences[name]
 
         #cv2.imshow("Control de Asistencia", frame)
 
