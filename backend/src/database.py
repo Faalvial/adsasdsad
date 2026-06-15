@@ -122,16 +122,22 @@ def get_persona_id(codigo_alumno):
     return persona_id
 
 
-def save_asistencia(persona_id, tipo):
+def save_asistencia(persona_id, tipo, fecha_hora=None):
     conn = None
     cursor = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO asistencia (persona_id, tipo) VALUES (%s, %s)",
-            (persona_id, tipo)
-        )
+        if fecha_hora:
+            cursor.execute(
+                "INSERT INTO asistencia (persona_id, tipo, fecha_hora) VALUES (%s, %s, %s)",
+                (persona_id, tipo, fecha_hora)
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO asistencia (persona_id, tipo) VALUES (%s, %s)",
+                (persona_id, tipo)
+            )
         conn.commit()
     except psycopg2.Error as e:
         if conn: conn.rollback()
@@ -144,12 +150,11 @@ def save_asistencia(persona_id, tipo):
 def get_ultimo_estado_asistencia(persona_id):
     conn = None
     cursor = None
-    ultimo_tipo = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
         query = """
-            SELECT tipo 
+            SELECT tipo, fecha_hora
             FROM asistencia 
             WHERE persona_id = %s 
             ORDER BY id DESC 
@@ -158,13 +163,14 @@ def get_ultimo_estado_asistencia(persona_id):
         cursor.execute(query, (persona_id,))
         row = cursor.fetchone()
         if row:
-            ultimo_tipo = row[0]
+            return {"tipo": row[0], "fecha_hora": row[1]}
+        return None
     except psycopg2.Error as e:
         print(f"[ERROR BD] Error al obtener último estado: {e}")
+        return None
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
-    return ultimo_tipo
 
 
 def get_historial_asistencia(limite=50, texto_busqueda=None, fecha=None):
