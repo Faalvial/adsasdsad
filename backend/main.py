@@ -2,7 +2,7 @@ import cv2
 import requests
 from insightface.app import FaceAnalysis
 #import winsound
-import winsound
+#import winsound
 import time
 from datetime import datetime
 
