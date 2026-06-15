@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Identicon from "../components/Identicon";
 
 export default function Home() {
   const [enLaboratorio, setEnLaboratorio] = useState([]);
@@ -76,7 +77,12 @@ export default function Home() {
               <tbody>
                 {enLaboratorio.map((p, idx) => (
                   <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "12px", fontWeight: "bold", color: "#1e293b" }}>{p.nombres} {p.apellidos}</td>
+                    <td style={{ padding: "12px", color: "#1e293b" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <Identicon value={p.dni} size={32} />
+                        <span style={{ fontWeight: "bold" }}>{p.nombres} {p.apellidos}</span>
+                      </div>
+                    </td>
                     <td style={{ padding: "12px", color: "#059669", fontWeight: "500" }}>{p.hora_entrada}</td>
                   </tr>
                 ))}
