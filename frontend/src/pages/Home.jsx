@@ -69,18 +69,14 @@ export default function Home() {
             <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
-                  <th style={{ padding: "12px", color: "#64748b", fontWeight: "600" }}>Código</th>
                   <th style={{ padding: "12px", color: "#64748b", fontWeight: "600" }}>Nombre Completo</th>
-                  <th style={{ padding: "12px", color: "#64748b", fontWeight: "600" }}>Proyecto</th>
                   <th style={{ padding: "12px", color: "#64748b", fontWeight: "600" }}>Hora de Entrada</th>
                 </tr>
               </thead>
               <tbody>
                 {enLaboratorio.map((p, idx) => (
                   <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "12px", color: "#1e293b", fontFamily: "monospace" }}>{p.codigo_alumno}</td>
                     <td style={{ padding: "12px", fontWeight: "bold", color: "#1e293b" }}>{p.nombres} {p.apellidos}</td>
-                    <td style={{ padding: "12px", color: "#475569" }}>{p.proyecto}</td>
                     <td style={{ padding: "12px", color: "#059669", fontWeight: "500" }}>{p.hora_entrada}</td>
                   </tr>
                 ))}

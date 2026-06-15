@@ -472,7 +472,7 @@ def exportar_historial_csv(fecha: str = None):
             query += " AND DATE(entrada) = %s"
             params.append(fecha)
 
-        query += " ORDER BY entrada DESC"
+        query += " ORDER BY CASE WHEN salida IS NULL THEN 0 ELSE 1 END ASC, COALESCE(salida, entrada) DESC"
 
         cursor.execute(query, tuple(params))
         rows = cursor.fetchall()

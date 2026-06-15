@@ -218,7 +218,7 @@ def get_historial_asistencia(limite=50, texto_busqueda=None, fecha=None):
             query += " AND DATE(entrada_hora) = %s"
             params.append(fecha)
 
-        query += " ORDER BY entrada_hora DESC LIMIT %s"
+        query += " ORDER BY CASE WHEN salida_hora IS NULL THEN 0 ELSE 1 END ASC, COALESCE(salida_hora, entrada_hora) DESC LIMIT %s"
         params.append(limite)
 
         cursor.execute(query, tuple(params))
