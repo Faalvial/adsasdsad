@@ -1,4 +1,5 @@
 # Threshold y otras configuraciones
+RECONNECT_DELAY = 5  #segundos entre intentos de reconexión
 THRESHOLD = 0.5 #umbral 
 DET_THRESHOLD = 0.7
 MODEL_NAME = "buffalo_sc"
