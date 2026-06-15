@@ -1,9 +1,12 @@
 import cv2
-import requests # <--- Nueva importación
+import requests
 from insightface.app import FaceAnalysis
 #import winsound
+import winsound
+import time
+from datetime import datetime
 
-from config import THRESHOLD, MODEL_NAME, CAMERA_INDEX, SKIP_FRAMES, COOLDOWN, DET_THRESHOLD
+from config import THRESHOLD, MODEL_NAME, CAMERA_INDEX, SKIP_FRAMES, COOLDOWN, DET_THRESHOLD, RECONNECT_DELAY
 from src.face_recognizer import identify_face
 from src.camera import draw_result
 import numpy as np
@@ -14,9 +17,7 @@ def main():
     app = FaceAnalysis(name=MODEL_NAME, providers=["CPUExecutionProvider"])
     app.prepare(ctx_id=0, det_size=(640, 640))
 
-    # ... (dentro de def main():)
-
-    # Cargar embeddings desde la API (ya no desde PostgreSQL)
+    # Cargar embeddings desde la API
     print("[INFO] Obteniendo embeddings desde la API central...")
     registered = {}
 
@@ -26,8 +27,6 @@ def main():
 
         if respuesta.status_code == 200:
             datos_json = respuesta.json()
-
-            # Reconstruir el diccionario convirtiendo las listas de vuelta a NumPy arrays
             registered = {
                 nombre: np.array(emb_list, dtype=np.float32)
                 for nombre, emb_list in datos_json.items()
@@ -47,7 +46,6 @@ def main():
     print(f"[INFO] {len(registered)} persona(s) cargada(s): {list(registered.keys())}")
 
     # Abrir cámara
-    #cap = cv2.VideoCapture(0)
     cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_FFMPEG)
     if not cap.isOpened():
         print("[ERROR] No se pudo abrir la cámara")
@@ -61,23 +59,31 @@ def main():
     while True:
         ret, frame = cap.read()
         if not ret:
-            print("[ERROR] No se pudo leer el frame")
-            break
+            print("[WARN] Cámara desconectada. Intentando reconectar...")
+            cap.release()
+
+            while True:
+                time.sleep(RECONNECT_DELAY)
+                cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_FFMPEG)
+                if cap.isOpened():
+                    print("[INFO] Cámara reconectada exitosamente.")
+                    frame_count = 0
+                    last_faces = []
+                    break
+                print(f"[WARN] Reconexión fallida. Reintentando en {RECONNECT_DELAY}s...")
+
+            continue
 
         frame_count += 1
 
         # Cada SKIP_FRAMES: primero detección ligera, luego embedding solo si hay rostros confiables
         if frame_count % SKIP_FRAMES == 0:
-            # CAPA 1: detección ligera (solo bounding boxes, sin embedding)
             bboxes, _ = app.det_model.detect(frame, input_size=(640, 640))
-            # Filtrar solo detecciones que superen el umbral de confianza
             rostros_confiables = [b for b in bboxes if b[4] >= DET_THRESHOLD] if bboxes is not None else []
 
             if len(rostros_confiables) > 0:
-                # CAPA 2: hay rostros confiables → ahora sí extraer embeddings completos
                 last_faces = app.get(frame)
             else:
-                # Sin rostros confiables → limpiar resultado anterior
                 last_faces = []
 
         # Procesar cada cara detectada
@@ -85,26 +91,22 @@ def main():
             embedding = face.embedding
             name, score = identify_face(embedding, registered, THRESHOLD)
 
-            # Registrar asistencia si es conocido y no está en cooldown
             if name != "Desconocido":
-                from datetime import datetime
                 ahora = datetime.now()
                 ultimo = cooldown.get(name)
 
                 if not ultimo or (ahora - ultimo).total_seconds() > COOLDOWN:
-                    # 1. Construir el payload JSON
                     payload = {
                         "camera_id": "hikvision_lab",
                         "timestamp": ahora.isoformat(),
                         "recognized_faces": [
                             {
                                 "nombre": name,
-                                "score": float(score)  # Convertir a float nativo de Python
+                                "score": float(score)
                             }
                         ]
                     }
 
-                    # 2. Enviar a la API
                     try:
                         api_url = "http://localhost:8000/api/v1/asistencia/registrar"
                         respuesta = requests.post(api_url, json=payload, timeout=3)
@@ -118,6 +120,8 @@ def main():
                     except requests.exceptions.RequestException as e:
                         print(f"[ERROR RED] No se pudo conectar con la API: {e}")
             #draw_result(frame, face.bbox, name, score)
+
+            draw_result(frame, face.bbox, name, score)
 
         #cv2.imshow("Control de Asistencia", frame)
 
