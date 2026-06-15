@@ -285,21 +285,20 @@ def resumen_supervision(proyecto_id: Optional[int] = None):
         cursor = conn.cursor()
 
         query = """
-        WITH pares_asistencia AS (
+WITH pares_asistencia AS (
                         SELECT 
                             persona_id,
-                            tipo,
                             fecha_hora AS entrada,
-                            LEAD(fecha_hora) OVER (PARTITION BY persona_id ORDER BY fecha_hora) AS salida,
-                            LEAD(tipo) OVER (PARTITION BY persona_id ORDER BY fecha_hora) AS siguiente_tipo
+                            LEAD(tipo) OVER (PARTITION BY persona_id ORDER BY fecha_hora) AS sig_tipo,
+                            LEAD(fecha_hora) OVER (PARTITION BY persona_id ORDER BY fecha_hora) AS salida
                         FROM asistencia
                     ),
                     horas_por_persona AS (
                         SELECT 
                             persona_id,
-                            SUM(EXTRACT(EPOCH FROM (salida - entrada)) / 3600.0) AS horas
+                            SUM(EXTRACT(EPOCH FROM (salida - entrada)) / 3600) AS horas
                         FROM pares_asistencia
-                        WHERE tipo = 'entrada' AND siguiente_tipo = 'salida'
+                        WHERE sig_tipo = 'salida'
                         GROUP BY persona_id
                     ),
                     extremos_asistencia AS (
