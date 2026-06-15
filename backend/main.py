@@ -1,7 +1,10 @@
 import cv2
 import requests # <--- Nueva importación
 from insightface.app import FaceAnalysis
-import winsound
+try:
+    import winsound
+except ImportError:
+    winsound = None
 import time
 
 from config import THRESHOLD, MODEL_NAME, CAMERA_INDEX, SKIP_FRAMES, COOLDOWN, DET_THRESHOLD, RECONNECT_DELAY
@@ -128,10 +131,11 @@ def main():
                 # Si es la primera vez que lo vemos en esta racha
                 if name not in active_presences:
                     enviar_registro_api(name, score, "ENTRADA")
-                    try:
-                        winsound.Beep(1500, 300)
-                    except:
-                        pass
+                    if winsound:
+                        try:
+                            winsound.Beep(1500, 300)
+                        except:
+                            pass
                 
                 # Actualizar siempre su tiempo de última vista
                 active_presences[name] = ahora
