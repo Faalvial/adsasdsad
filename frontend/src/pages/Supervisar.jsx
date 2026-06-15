@@ -6,6 +6,7 @@ export default function Supervisar() {
   const [proyectos, setProyectos] = useState([]);
   const [filtroProyecto, setFiltroProyecto] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [refreshToggle, setRefreshToggle] = useState(false);
 
   const cargarProyectos = async () => {
     try {
@@ -31,8 +32,25 @@ export default function Supervisar() {
     }
   };
 
-  useEffect(() => { cargarProyectos(); }, []);
-  useEffect(() => { cargarResumen(); }, [filtroProyecto]);
+  useEffect(() => {
+    const wsUrl = import.meta.env.VITE_API_URL.replace(/^http/, "ws") + "/api/v1/ws";
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "update") {
+          setRefreshToggle(prev => !prev);
+        }
+      } catch (err) {
+        console.error("Error WebSocket", err);
+      }
+    };
+    return () => ws.close();
+  }, []);
+
+  useEffect(() => { cargarProyectos(); }, [refreshToggle]);
+  useEffect(() => { cargarResumen(); }, [filtroProyecto, refreshToggle]);
 
   return (
     <div>

@@ -42,6 +42,25 @@ export default function GestionBD() {
   useEffect(() => {
     cargarProyectos();
     cargarPersonas();
+
+    const wsUrl = import.meta.env.VITE_API_URL.replace(/^http/, "ws") + "/api/v1/ws";
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "update") {
+          if (data.entity === "proyectos") cargarProyectos();
+          if (data.entity === "personas") cargarPersonas();
+        }
+      } catch (err) {
+        console.error("Error procesando mensaje WebSocket", err);
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
   }, []);
 
   const guardarProyecto = async (e) => {

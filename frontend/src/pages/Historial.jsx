@@ -6,6 +6,7 @@ export default function Historial() {
   const [fecha, setFecha] = useState("");
   const [limite, setLimite] = useState(50);
   const [cargando, setCargando] = useState(false);
+  const [refreshToggle, setRefreshToggle] = useState(false);
 
   const cargarHistorial = async () => {
     setCargando(true);
@@ -35,11 +36,28 @@ export default function Historial() {
   };
 
   useEffect(() => {
+    const wsUrl = import.meta.env.VITE_API_URL.replace(/^http/, "ws") + "/api/v1/ws";
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "update" && (data.entity === "asistencia" || data.entity === "personas" || data.entity === "proyectos")) {
+          setRefreshToggle(prev => !prev);
+        }
+      } catch (err) {
+        console.error("Error WebSocket", err);
+      }
+    };
+    return () => ws.close();
+  }, []);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       cargarHistorial();
     }, 300);
     return () => clearTimeout(timer);
-  }, [filtro, fecha, limite]);
+  }, [filtro, fecha, limite, refreshToggle]);
 
   return (
     <div>

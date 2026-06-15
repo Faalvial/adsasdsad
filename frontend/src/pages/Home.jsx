@@ -20,9 +20,26 @@ export default function Home() {
 
   useEffect(() => {
     cargarEnLaboratorio();
-    // Refrescar cada 10 segundos
-    const interval = setInterval(cargarEnLaboratorio, 10000);
-    return () => clearInterval(interval);
+
+    // Conectar WebSocket para actualizaciones en tiempo real
+    const wsUrl = import.meta.env.VITE_API_URL.replace(/^http/, "ws") + "/api/v1/ws";
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        // Si el backend avisa que cambió una asistencia, recargar datos
+        if (data.type === "update" && data.entity === "asistencia") {
+          cargarEnLaboratorio();
+        }
+      } catch (err) {
+        console.error("Error procesando mensaje WebSocket", err);
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
   }, []);
 
   return (

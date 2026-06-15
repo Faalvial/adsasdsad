@@ -1,10 +1,34 @@
 # Archivo: api/server.py
 import base64
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from fastapi.responses import StreamingResponse
+import asyncio
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except Exception:
+                pass
+
+manager = ConnectionManager()
+
+async def notify_update(entity: str):
+    await manager.broadcast({"type": "update", "entity": entity})
 from config import CAMERA_INDEX
 import cv2
 import numpy as np
@@ -49,6 +73,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.websocket("/api/v1/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 print("[INFO] Inicializando modelo InsightFace en entorno API central...")
 face_app = FaceAnalysis(name="buffalo_sc", providers=["CPUExecutionProvider"])
@@ -127,25 +160,28 @@ def listar_proyectos():
 
 
 @app.post("/api/v1/proyectos")
-def crear_proyecto(payload: ProyectoRequest):
+def crear_proyecto(payload: ProyectoRequest, background_tasks: BackgroundTasks):
     id_nuevo = save_proyecto(payload.nombre_proyecto, payload.descripcion)
     if id_nuevo:
+        background_tasks.add_task(notify_update, "proyectos")
         return {"status": "ok", "proyecto_id": id_nuevo, "mensaje": "Proyecto creado con éxito"}
     raise HTTPException(status_code=400, detail="No se pudo registrar el proyecto")
 
 
 @app.put("/api/v1/proyectos/{proyecto_id}")
-def modificar_proyecto(proyecto_id: int, payload: ProyectoUpdateRequest):
+def modificar_proyecto(proyecto_id: int, payload: ProyectoUpdateRequest, background_tasks: BackgroundTasks):
     exito = update_proyecto(proyecto_id, payload.nombre_proyecto, payload.descripcion)
     if exito:
+        background_tasks.add_task(notify_update, "proyectos")
         return {"status": "ok", "mensaje": "Proyecto actualizado"}
     raise HTTPException(status_code=400, detail="Error al actualizar proyecto")
 
 
 @app.delete("/api/v1/proyectos/{proyecto_id}")
-def eliminar_proyecto(proyecto_id: int):
+def eliminar_proyecto(proyecto_id: int, background_tasks: BackgroundTasks):
     exito = delete_proyecto(proyecto_id)
     if exito:
+        background_tasks.add_task(notify_update, "proyectos")
         return {"status": "ok", "mensaje": "Proyecto eliminado"}
     raise HTTPException(status_code=400, detail="Error al eliminar proyecto")
 
@@ -163,7 +199,7 @@ def obtener_embeddings():
 
 
 @app.post("/api/v1/asistencia/registrar")
-def registrar_asistencia(payload: PayloadAsistencia):
+def registrar_asistencia(payload: PayloadAsistencia, background_tasks: BackgroundTasks):
     from datetime import datetime, date
     procesados = 0
     errores = []
@@ -200,11 +236,14 @@ def registrar_asistencia(payload: PayloadAsistencia):
         save_asistencia(persona_id, nuevo_estado)
         procesados += 1
 
+    if procesados > 0:
+        background_tasks.add_task(notify_update, "asistencia")
+
     return {"status": "completado", "registros_guardados": procesados, "no_encontrados": errores}
 
 
 @app.post("/api/v1/personas/registrar")
-def registrar_alumno(payload: AlumnoRegistroRequest):
+def registrar_alumno(payload: AlumnoRegistroRequest, background_tasks: BackgroundTasks):
     if len(payload.imagenes) != 5:
         raise HTTPException(status_code=400, detail="El sistema requiere exactamente 5 capturas espaciadas")
 
@@ -238,6 +277,7 @@ def registrar_alumno(payload: AlumnoRegistroRequest):
         embedding=embedding_promedio
     )
     if exito:
+        background_tasks.add_task(notify_update, "personas")
         return {"status": "ok", "mensaje": f"Alumno {payload.nombres} enrolado correctamente"}
     raise HTTPException(status_code=500, detail="Error de inserción en el almacenamiento relacional")
 
@@ -248,20 +288,22 @@ def listar_personas():
 
 
 @app.put("/api/v1/personas/{persona_id}")
-def modificar_persona(persona_id: int, payload: PersonaUpdateRequest):
+def modificar_persona(persona_id: int, payload: PersonaUpdateRequest, background_tasks: BackgroundTasks):
     exito = update_persona(
         persona_id, payload.dni, payload.codigo_alumno, 
         payload.nombres, payload.apellidos, payload.proyecto_id, payload.estado_activo
     )
     if exito:
+        background_tasks.add_task(notify_update, "personas")
         return {"status": "ok", "mensaje": "Persona actualizada"}
     raise HTTPException(status_code=400, detail="Error al actualizar persona")
 
 
 @app.delete("/api/v1/personas/{persona_id}")
-def eliminar_persona(persona_id: int):
+def eliminar_persona(persona_id: int, background_tasks: BackgroundTasks):
     exito = delete_persona(persona_id)
     if exito:
+        background_tasks.add_task(notify_update, "personas")
         return {"status": "ok", "mensaje": "Persona eliminada"}
     raise HTTPException(status_code=400, detail="Error al eliminar persona")
 
