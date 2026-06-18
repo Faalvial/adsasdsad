@@ -61,10 +61,30 @@ from src.database import (
     get_personas_info,
     update_persona,
     delete_persona,
-    get_personas_en_laboratorio
+    get_personas_en_laboratorio,
+    cerrar_sesiones_abandonadas
 )
 
 app = FastAPI(title="API Control de Asistencia - Tech Lab")
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+scheduler = AsyncIOScheduler()
+
+def job_cerrar_sesiones():
+    procesados = cerrar_sesiones_abandonadas()
+    if procesados > 0:
+        print(f"[CRON] Se cerraron {procesados} sesiones abandonadas.")
+        asyncio.create_task(notify_update("asistencia"))
+
+@app.on_event("startup")
+def start_scheduler():
+    # Ejecutar la limpieza una vez al iniciar el servidor por si hubo caídas
+    job_cerrar_sesiones()
+    
+    # Programar la limpieza recurrente a las 00:00
+    scheduler.add_job(job_cerrar_sesiones, 'cron', hour=0, minute=0)
+    scheduler.start()
+    print("[INFO] Tarea programada de cierre a las 00:00 y en startup inicializada.")
 
 app.add_middleware(
     CORSMiddleware,
@@ -212,26 +232,12 @@ def registrar_asistencia(payload: PayloadAsistencia, background_tasks: Backgroun
 
         ultimo = get_ultimo_estado_asistencia(persona_id)
 
-        if ultimo is None:
-            # Nunca ha marcado → entrada
+        if ultimo is None or ultimo["tipo"] == "salida":
+            # Nunca ha marcado o su último evento fue salida → nueva entrada
             nuevo_estado = "entrada"
-
-        elif ultimo["tipo"] == "entrada":
-            fecha_ultimo = ultimo["fecha_hora"].date()
-            hoy = date.today()
-
-            if fecha_ultimo < hoy:
-                # Entrada de un día anterior sin salida → sesión abandonada
-                # Cerramos con salida igual a la entrada (suma 0) y marcamos nueva entrada
-                save_asistencia(persona_id, "salida", ultimo["fecha_hora"])
-                nuevo_estado = "entrada"
-            else:
-                # Entrada de hoy → salida normal
-                nuevo_estado = "salida"
-
         else:
-            # Último fue salida → nueva entrada
-            nuevo_estado = "entrada"
+            # Último evento fue entrada → salida normal
+            nuevo_estado = "salida"
 
         save_asistencia(persona_id, nuevo_estado)
         procesados += 1
@@ -278,7 +284,7 @@ def registrar_alumno(payload: AlumnoRegistroRequest, background_tasks: Backgroun
     )
     if exito:
         background_tasks.add_task(notify_update, "personas")
-        return {"status": "ok", "mensaje": f"Alumno {payload.nombres} enrolado correctamente"}
+        return {"status": "ok", "mensaje": f"Alumno {payload.nombres} agregado correctamente"}
     raise HTTPException(status_code=500, detail="Error de inserción en el almacenamiento relacional")
 
 

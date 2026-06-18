@@ -71,7 +71,6 @@ export default function Home() {
               <thead>
                 <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
                   <th style={{ padding: "12px", color: "#64748b", fontWeight: "600" }}>Nombre Completo</th>
-                  <th style={{ padding: "12px", color: "#64748b", fontWeight: "600" }}>Hora de Entrada</th>
                 </tr>
               </thead>
               <tbody>
@@ -80,10 +79,11 @@ export default function Home() {
                     <td style={{ padding: "12px", color: "#1e293b" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                         <Identicon value={p.dni} size={32} />
-                        <span style={{ fontWeight: "bold" }}>{p.nombres} {p.apellidos}</span>
+                        <span style={{ fontWeight: "bold" }}>
+                          {p.nombres?.split(' ')[0]} {p.apellidos?.split(' ')[0]}
+                        </span>
                       </div>
                     </td>
-                    <td style={{ padding: "12px", color: "#059669", fontWeight: "500" }}>{p.hora_entrada}</td>
                   </tr>
                 ))}
               </tbody>

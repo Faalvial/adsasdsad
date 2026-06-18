@@ -147,6 +147,48 @@ def save_asistencia(persona_id, tipo, fecha_hora=None):
         if conn: conn.close()
 
 
+def cerrar_sesiones_abandonadas():
+    """Cierra todas las sesiones de entrada abiertas con salida igual a la entrada (0 horas)"""
+    conn = None
+    cursor = None
+    procesados = 0
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Encontrar todas las entradas que siguen siendo el último evento
+        query = """
+            WITH ultimo_evento AS (
+                SELECT persona_id, tipo, fecha_hora,
+                       ROW_NUMBER() OVER (PARTITION BY persona_id ORDER BY fecha_hora DESC) as rn
+                FROM asistencia
+            )
+            SELECT persona_id, fecha_hora
+            FROM ultimo_evento
+            WHERE rn = 1 AND tipo = 'entrada' AND DATE(fecha_hora) < CURRENT_DATE
+        """
+        cursor.execute(query)
+        abiertas = cursor.fetchall()
+        
+        for persona_id, fecha_hora in abiertas:
+            # Insertar registro de salida con la misma fecha_hora
+            cursor.execute(
+                "INSERT INTO asistencia (persona_id, tipo, fecha_hora) VALUES (%s, %s, %s)",
+                (persona_id, 'salida', fecha_hora)
+            )
+            procesados += 1
+            
+        conn.commit()
+        return procesados
+    except psycopg2.Error as e:
+        if conn: conn.rollback()
+        print(f"[ERROR BD] Error al cerrar sesiones abandonadas: {e}")
+        return 0
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+
 def get_ultimo_estado_asistencia(persona_id):
     conn = None
     cursor = None
