@@ -4,5 +4,6 @@ numpy
 onnxruntime
 psycopg2
 fastapi
-uvicorn
+uvicorn[standard]
 requests
+websockets

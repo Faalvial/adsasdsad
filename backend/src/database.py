@@ -404,3 +404,5 @@ def get_personas_en_laboratorio():
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
+        
+    return en_lab
