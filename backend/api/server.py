@@ -62,7 +62,8 @@ from src.database import (
     update_persona,
     delete_persona,
     get_personas_en_laboratorio,
-    cerrar_sesiones_abandonadas
+    cerrar_sesiones_abandonadas,
+    delete_registro_asistencia
 )
 
 app = FastAPI(title="API Control de Asistencia - Tech Lab")
@@ -232,15 +233,32 @@ def registrar_asistencia(payload: PayloadAsistencia, background_tasks: Backgroun
 
         ultimo = get_ultimo_estado_asistencia(persona_id)
 
-        if ultimo is None or ultimo["tipo"] == "salida":
-            # Nunca ha marcado o su último evento fue salida → nueva entrada
-            nuevo_estado = "entrada"
+        if ultimo is None:
+            # Nunca ha marcado → entrada
+            save_asistencia(persona_id, "entrada")
+            procesados += 1
+            
+        elif ultimo["tipo"] == "salida":
+            # Último evento fue salida. Evaluamos el tiempo que estuvo afuera.
+            ahora = datetime.now()
+            diferencia = ahora - ultimo["fecha_hora"]
+            minutos_fuera = diferencia.total_seconds() / 60.0
+            
+            if minutos_fuera < 30:
+                # Estuvo afuera menos de 30 minutos (ej. fue al baño)
+                # Borramos el registro de salida (hacemos el POP)
+                delete_registro_asistencia(ultimo["id"])
+                # NO insertamos nueva entrada, su estado vuelve a ser la entrada anterior.
+                procesados += 1
+            else:
+                # Estuvo afuera 30 minutos o más → nueva sesión
+                save_asistencia(persona_id, "entrada")
+                procesados += 1
+                
         else:
             # Último evento fue entrada → salida normal
-            nuevo_estado = "salida"
-
-        save_asistencia(persona_id, nuevo_estado)
-        procesados += 1
+            save_asistencia(persona_id, "salida")
+            procesados += 1
 
     if procesados > 0:
         background_tasks.add_task(notify_update, "asistencia")

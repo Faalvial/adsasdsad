@@ -196,7 +196,7 @@ def get_ultimo_estado_asistencia(persona_id):
         conn = get_connection()
         cursor = conn.cursor()
         query = """
-            SELECT tipo, fecha_hora
+            SELECT id, tipo, fecha_hora
             FROM asistencia 
             WHERE persona_id = %s 
             ORDER BY id DESC 
@@ -205,11 +205,30 @@ def get_ultimo_estado_asistencia(persona_id):
         cursor.execute(query, (persona_id,))
         row = cursor.fetchone()
         if row:
-            return {"tipo": row[0], "fecha_hora": row[1]}
+            return {"id": row[0], "tipo": row[1], "fecha_hora": row[2]}
         return None
     except psycopg2.Error as e:
         print(f"[ERROR BD] Error al obtener último estado: {e}")
         return None
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+
+def delete_registro_asistencia(registro_id):
+    """Elimina físicamente un registro de asistencia por su ID (usado para fusionar intervalos cortos)"""
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM asistencia WHERE id = %s", (registro_id,))
+        conn.commit()
+        return True
+    except psycopg2.Error as e:
+        if conn: conn.rollback()
+        print(f"[ERROR BD] Error al eliminar registro de asistencia: {e}")
+        return False
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
