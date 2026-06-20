@@ -160,7 +160,7 @@ def cerrar_sesiones_abandonadas():
         query = """
             WITH ultimo_evento AS (
                 SELECT persona_id, tipo, fecha_hora,
-                       ROW_NUMBER() OVER (PARTITION BY persona_id ORDER BY fecha_hora DESC) as rn
+                       ROW_NUMBER() OVER (PARTITION BY persona_id ORDER BY fecha_hora DESC, id DESC) as rn
                 FROM asistencia
             )
             SELECT persona_id, fecha_hora
@@ -241,7 +241,7 @@ def get_historial_asistencia(limite=50, texto_busqueda=None, fecha=None):
         conn = get_connection()
         cursor = conn.cursor()
 
-        # El corazón de la consulta: Emparejamos eventos con Window Functions (LEAD)
+        # CORRECCIÓN: Agregamos a.id en los ORDER BY de los LEAD
         query = """
                     WITH eventos_emparejados AS (
                         SELECT 
@@ -252,8 +252,8 @@ def get_historial_asistencia(limite=50, texto_busqueda=None, fecha=None):
                             COALESCE(pr.nombre_proyecto, 'Sin proyecto') AS proyecto,
                             a.tipo,
                             a.fecha_hora AS entrada_hora,
-                            LEAD(a.tipo) OVER (PARTITION BY a.persona_id ORDER BY a.fecha_hora) AS siguiente_tipo,
-                            LEAD(a.fecha_hora) OVER (PARTITION BY a.persona_id ORDER BY a.fecha_hora) AS salida_hora
+                            LEAD(a.tipo) OVER (PARTITION BY a.persona_id ORDER BY a.fecha_hora ASC, a.id ASC) AS siguiente_tipo,
+                            LEAD(a.fecha_hora) OVER (PARTITION BY a.persona_id ORDER BY a.fecha_hora ASC, a.id ASC) AS salida_hora
                         FROM asistencia a
                         JOIN personas p ON a.persona_id = p.id
                         LEFT JOIN proyectos pr ON p.proyecto_id = pr.id
@@ -275,7 +275,6 @@ def get_historial_asistencia(limite=50, texto_busqueda=None, fecha=None):
             params.extend([f"%{texto_busqueda}%", f"%{texto_busqueda}%"])
 
         if fecha:
-            # Asume que el filtro de fecha de React envía formato 'YYYY-MM-DD'
             query += " AND DATE(entrada_hora) = %s"
             params.append(fecha)
 
@@ -436,7 +435,7 @@ def get_personas_en_laboratorio():
         query = """
             WITH ultimo_evento AS (
                 SELECT persona_id, tipo, fecha_hora,
-                       ROW_NUMBER() OVER (PARTITION BY persona_id ORDER BY fecha_hora DESC) as rn
+                       ROW_NUMBER() OVER (PARTITION BY persona_id ORDER BY fecha_hora DESC, id DESC) as rn
                 FROM asistencia
             )
             SELECT p.dni, p.codigo_alumno, p.nombres, p.apellidos, 

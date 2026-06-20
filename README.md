@@ -45,6 +45,11 @@ cd backend
 python -m venv .venv
 .venv\Scripts\activate
 
+# Crear y activar el entorno virtual (Ubuntu)
+python3 -m venv .venv
+source .venv/bin/activate
+
+
 # Instalar dependencias
 pip install -r requirements.txt
 

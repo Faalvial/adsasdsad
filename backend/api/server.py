@@ -68,7 +68,7 @@ from src.database import (
 
 app = FastAPI(title="API Control de Asistencia - Tech Lab")
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+"""from apscheduler.schedulers.asyncio import AsyncIOScheduler
 scheduler = AsyncIOScheduler()
 
 def job_cerrar_sesiones():
@@ -85,7 +85,35 @@ def start_scheduler():
     # Programar la limpieza recurrente a las 00:00
     scheduler.add_job(job_cerrar_sesiones, 'cron', hour=0, minute=0)
     scheduler.start()
+    print("[INFO] Tarea programada de cierre a las 00:00 y en startup inicializada.")"""
+
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+# Asegúrate de importar asyncio si no lo tenías arriba
+import asyncio
+
+scheduler = AsyncIOScheduler()
+
+# 1. Cambiamos a 'async def'
+async def job_cerrar_sesiones():
+    procesados = cerrar_sesiones_abandonadas()
+    if procesados > 0:
+        print(f"[CRON] Se cerraron {procesados} sesiones abandonadas.")
+        # 2. Ahora podemos usar 'await' directamente sin usar create_task
+        await notify_update("asistencia")
+
+# 3. Cambiamos el startup a 'async def' también
+@app.on_event("startup")
+async def start_scheduler():
+    # Ejecutar la limpieza una vez al iniciar el servidor
+    # Al ser async, ahora usamos 'await'
+    await job_cerrar_sesiones()
+    
+    # Programar la limpieza recurrente a las 00:00
+    scheduler.add_job(job_cerrar_sesiones, 'cron', hour=00, minute=00)
+    scheduler.start()
     print("[INFO] Tarea programada de cierre a las 00:00 y en startup inicializada.")
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -351,12 +379,13 @@ def resumen_supervision(proyecto_id: Optional[int] = None):
         cursor = conn.cursor()
 
         query = """
-WITH pares_asistencia AS (
+                    WITH pares_asistencia AS (
                         SELECT 
                             persona_id,
                             fecha_hora AS entrada,
-                            LEAD(tipo) OVER (PARTITION BY persona_id ORDER BY fecha_hora) AS sig_tipo,
-                            LEAD(fecha_hora) OVER (PARTITION BY persona_id ORDER BY fecha_hora) AS salida
+                            -- CORRECCIÓN: Aseguramos el orden estricto por id ante empates de hora
+                            LEAD(tipo) OVER (PARTITION BY persona_id ORDER BY fecha_hora ASC, id ASC) AS sig_tipo,
+                            LEAD(fecha_hora) OVER (PARTITION BY persona_id ORDER BY fecha_hora ASC, id ASC) AS salida
                         FROM asistencia
                     ),
                     horas_por_persona AS (
