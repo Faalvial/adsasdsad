@@ -114,6 +114,13 @@ async def start_scheduler():
     scheduler.start()
     print("[INFO] Tarea programada de cierre a las 00:00 y en startup inicializada.")
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    global proceso_main
+    if proceso_main is not None and proceso_main.poll() is None:
+        proceso_main.terminate()
+        print("[INFO] Proceso main.py (cámara) terminado de forma segura para evitar duplicados.")
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -249,7 +256,7 @@ def obtener_embeddings():
 
 @app.post("/api/v1/asistencia/registrar")
 def registrar_asistencia(payload: PayloadAsistencia, background_tasks: BackgroundTasks):
-    from datetime import datetime, date
+    from datetime import datetime
     procesados = 0
     errores = []
 
@@ -260,34 +267,45 @@ def registrar_asistencia(payload: PayloadAsistencia, background_tasks: Backgroun
             continue
 
         ultimo = get_ultimo_estado_asistencia(persona_id)
+        ahora = datetime.now()
 
+        # CASO 1: Es su primera vez en la vida o no hay registros
         if ultimo is None:
-            # Nunca ha marcado → entrada
             save_asistencia(persona_id, "entrada")
             procesados += 1
-            
-        elif ultimo["tipo"] == "salida":
-            # Último evento fue salida. Evaluamos el tiempo que estuvo afuera.
-            ahora = datetime.now()
-            diferencia = ahora - ultimo["fecha_hora"]
-            minutos_fuera = diferencia.total_seconds() / 60.0
-            
-            if minutos_fuera < 30:
-                # Estuvo afuera menos de 30 minutos (ej. fue al baño)
-                # Borramos el registro de salida (hacemos el POP)
-                delete_registro_asistencia(ultimo["id"])
-                # NO insertamos nueva entrada, su estado vuelve a ser la entrada anterior.
-                procesados += 1
+            continue
+
+        # Calculamos cuánto tiempo ha pasado desde su último evento
+        diferencia = ahora - ultimo["fecha_hora"]
+        minutos_transcurridos = diferencia.total_seconds() / 60.0
+
+        # CASO 2: Su último evento fue una ENTRADA
+        if ultimo["tipo"] == "entrada":
+            # Si entró hace menos de 5 minutos, sigue en la puerta. Ignoramos.
+            if minutos_transcurridos < 5:
+                continue 
             else:
-                # Estuvo afuera 30 minutos o más → nueva sesión
-                save_asistencia(persona_id, "entrada")
+                # Ya pasó un buen rato, esto es definitivamente su salida.
+                save_asistencia(persona_id, "salida")
+                procesados += 1
+
+        # CASO 3: Su último evento fue una SALIDA
+        elif ultimo["tipo"] == "salida":
+            # Si salió hace menos de 5 minutos, sigue en la puerta despidiéndose. Ignoramos.
+            if minutos_transcurridos < 5:
+                continue
+            
+            # Si regresó entre 5 y 30 minutos, fue al baño. Borramos la salida.
+            elif 5 <= minutos_transcurridos < 30:
+                delete_registro_asistencia(ultimo["id"])
                 procesados += 1
                 
-        else:
-            # Último evento fue entrada → salida normal
-            save_asistencia(persona_id, "salida")
-            procesados += 1
+            # Si pasaron más de 30 minutos, es un nuevo día o una nueva sesión.
+            else:
+                save_asistencia(persona_id, "entrada")
+                procesados += 1
 
+    # Notificamos a React por WebSocket solo si hubo cambios reales
     if procesados > 0:
         background_tasks.add_task(notify_update, "asistencia")
 
@@ -457,33 +475,32 @@ def resumen_supervision(proyecto_id: Optional[int] = None):
 
 
 def generador_frames_rtsp():
-    """Conecta a la cámara y genera un flujo continuo de imágenes JPEG con reconexión automática"""
     cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_FFMPEG)
-
     if not cap.isOpened():
-        print("[WARN] No se pudo conectar a la cámara inicialmente. Reintentando...")
-
-    while True:
-        # Si la cámara no está abierta, intentar reconectar
-        if not cap.isOpened():
-            time.sleep(RECONNECT_DELAY)
-            cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_FFMPEG)
+        print("[WARN] No se pudo conectar a la cámara inicialmente.")
+        
+    try:
+        while True:
             if not cap.isOpened():
-                print(f"[WARN] Reconexión fallida. Reintentando en {RECONNECT_DELAY}s...")
+                time.sleep(RECONNECT_DELAY)
+                cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_FFMPEG)
                 continue
-            print("[INFO] Cámara reconectada en video feed.")
 
-        ret, frame = cap.read()
-        if not ret:
-            print("[WARN] Video feed perdido. Intentando reconectar...")
+            ret, frame = cap.read()
+            if not ret:
+                cap.release()
+                continue  
+
+            _, buffer = cv2.imencode('.jpg', frame)
+            frame_bytes = buffer.tobytes()
+
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+    finally:
+        # ¡ESTO ES VITAL! Se ejecuta obligatoriamente cuando el usuario sale de la pestaña
+        if cap is not None:
             cap.release()
-            continue  # vuelve al inicio, donde detecta que no está abierta y reintenta
-
-        _, buffer = cv2.imencode('.jpg', frame)
-        frame_bytes = buffer.tobytes()
-
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            print("[INFO] Cámara liberada correctamente por el servidor web.")
 
 
 @app.get("/api/v1/video_feed")
