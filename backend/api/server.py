@@ -356,6 +356,46 @@ def registrar_alumno(payload: AlumnoRegistroRequest, background_tasks: Backgroun
 def listar_personas():
     return {"status": "ok", "data": get_personas_info()}
 
+@app.get("/api/v1/personas/exportar")
+def exportar_personas_csv():
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT p.dni, p.codigo_alumno, p.nombres, p.apellidos,
+                   COALESCE(pr.nombre_proyecto, 'Sin proyecto') AS proyecto,
+                   p.fecha_registro, p.estado_activo
+            FROM personas p
+            LEFT JOIN proyectos pr ON p.proyecto_id = pr.id
+            ORDER BY p.apellidos, p.nombres
+        """)
+        rows = cursor.fetchall()
+
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter=',', quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(["DNI", "Código de Alumno", "Nombres", "Apellidos", "Proyecto", "Fecha de Registro", "Activo"])
+
+        formato = "%d/%m/%Y %H:%M:%S"
+        for row in rows:
+            fecha_str = row[5].strftime(formato) if row[5] else "---"
+            activo_str = "Sí" if row[6] else "No"
+            writer.writerow([row[0] or "Sin DNI", row[1], row[2], row[3], row[4], fecha_str, activo_str])
+
+        output.seek(0)
+
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=personas.csv"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
 
 @app.put("/api/v1/personas/{persona_id}")
 def modificar_persona(persona_id: int, payload: PersonaUpdateRequest, background_tasks: BackgroundTasks):
