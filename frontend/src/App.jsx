@@ -62,7 +62,7 @@ function Layout() {
   };
 
   useEffect(() => {
-    const interval = setInterval(fetchEstado, 3000);
+    const interval = setInterval(fetchEstado, 15000);
     return () => clearInterval(interval);
   }, []);
 
