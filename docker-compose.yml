@@ -38,8 +38,8 @@ services:
     ports:
       - "5173:5173"
     environment:
-      # Si accedes al sistema desde otra PC de la red, cambia localhost por la IP de la PC con Ubuntu.
-      - VITE_API_URL=http://localhost:8000
+      # Lee VITE_API_URL desde el archivo .env principal, o usa localhost:8000 por defecto
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
     depends_on:
       - backend
 
