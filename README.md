@@ -86,6 +86,26 @@ npm run dev -- --host
 
 ---
 
+### 4. Despliegue con Docker (Recomendado)
+
+El proyecto incluye un entorno preconfigurado con Docker Compose que levanta la base de datos, el backend y el frontend.
+
+1. **Configurar la red (Importante para acceso desde otra PC):**
+   - Copia el archivo `.env.example` a `.env`:
+     ```bash
+     cp .env.example .env
+     ```
+   - Edita el archivo `.env` y reemplaza `<IP_DEL_SERVIDOR>` por la dirección IP local de la computadora donde ejecutarás Docker. Esto permite que el frontend encuentre la API correctamente en la red.
+
+2. **Iniciar los servicios:**
+   ```bash
+   docker-compose up -d --build
+   ```
+
+3. El frontend estará disponible en `http://<TU_IP>:5173` y el backend en `http://<TU_IP>:8000`.
+
+---
+
 ## Notas para el Control de Versiones (Git)
 
 Para mantener el repositorio limpio y profesional:
