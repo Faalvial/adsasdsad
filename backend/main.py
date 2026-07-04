@@ -39,8 +39,8 @@ def main():
         return
 
     if not registered:
-        print("[ERROR] No se recibieron personas desde la API.")
-        return
+        print("[WARN] No hay personas registradas. La IA funcionará pero no reconocerá a nadie.")
+        # No hacemos return para que no se apague la cámara
 
     print(f"[INFO] {len(registered)} persona(s) cargada(s): {list(registered.keys())}")
 
