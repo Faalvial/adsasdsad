@@ -6,11 +6,11 @@
 -- ------------------------------------------------------------------------------
 -- PARTE 1: CREACIÓN DE USUARIO Y BASE DE DATOS
 -- ------------------------------------------------------------------------------
-CREATE USER asistencia_user WITH PASSWORD 'admin123';
-CREATE DATABASE control_asistencia OWNER asistencia_user;
+-- CREATE USER asistencia_user WITH PASSWORD 'admin123';
+-- CREATE DATABASE control_asistencia OWNER asistencia_user;
 
 -- Cambiar a la nueva base de datos (Comando exclusivo de la terminal psql)
-\c control_asistencia
+-- \c control_asistencia
 
 
 -- ------------------------------------------------------------------------------
