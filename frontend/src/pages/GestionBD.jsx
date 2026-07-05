@@ -18,7 +18,7 @@ export default function GestionBD() {
   const cargarProyectos = async () => {
     setProyectosCargando(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/proyectos`);
+      const res = await fetch(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/proyectos`);
       const data = await res.json();
       if (data.status === "ok") setProyectos(data.data);
     } catch (err) {
@@ -30,7 +30,7 @@ export default function GestionBD() {
   const cargarPersonas = async () => {
     setPersonasCargando(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/personas`);
+      const res = await fetch(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/personas`);
       const data = await res.json();
       if (data.status === "ok") setPersonas(data.data);
     } catch (err) {
@@ -43,7 +43,7 @@ export default function GestionBD() {
     cargarProyectos();
     cargarPersonas();
 
-    const wsUrl = import.meta.env.VITE_API_URL.replace(/^http/, "ws") + "/api/v1/ws";
+    const wsUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/^http/, "ws") + "/api/v1/ws";
     const ws = new WebSocket(wsUrl);
 
     ws.onmessage = (event) => {
@@ -67,13 +67,13 @@ export default function GestionBD() {
     e.preventDefault();
     try {
       if (formProyecto.id) {
-        await fetch(`${import.meta.env.VITE_API_URL}/api/v1/proyectos/${formProyecto.id}`, {
+        await fetch(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/proyectos/${formProyecto.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ nombre_proyecto: formProyecto.nombre, descripcion: formProyecto.descripcion })
         });
       } else {
-        await fetch(`${import.meta.env.VITE_API_URL}/api/v1/proyectos`, {
+        await fetch(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/proyectos`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ nombre_proyecto: formProyecto.nombre, descripcion: formProyecto.descripcion })
@@ -89,7 +89,7 @@ export default function GestionBD() {
   const eliminarProyecto = async (id) => {
     if (!confirm("¿Seguro que deseas eliminar este proyecto?")) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/v1/proyectos/${id}`, { method: "DELETE" });
+      await fetch(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/proyectos/${id}`, { method: "DELETE" });
       cargarProyectos();
     } catch (err) {
       alert("Error eliminando proyecto");
@@ -100,7 +100,7 @@ export default function GestionBD() {
     e.preventDefault();
     if (!formPersona.id) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/v1/personas/${formPersona.id}`, {
+      await fetch(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/personas/${formPersona.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -122,7 +122,7 @@ export default function GestionBD() {
   const eliminarPersona = async (id) => {
     if (!confirm("¿Seguro que deseas eliminar esta persona? Esto borrará sus asistencias.")) return;
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/api/v1/personas/${id}`, { method: "DELETE" });
+      await fetch(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/personas/${id}`, { method: "DELETE" });
       cargarPersonas();
     } catch (err) {
       alert("Error eliminando persona");

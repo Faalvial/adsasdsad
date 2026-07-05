@@ -10,7 +10,7 @@ export default function RegistrarAlumno() {
   const [mostrarFormProyecto, setMostrarFormProyecto] = useState(false);
   const [nuevoProyecto, setNuevoProyecto] = useState({ nombre_proyecto: "", descripcion: "" });
   const [estadoProyecto, setEstadoProyecto] = useState({ loading: false, error: null });
-  const [streamUrl] = useState(`${import.meta.env.VITE_API_URL}/api/v1/video_feed?t=${Date.now()}`);
+  const [streamUrl] = useState(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/video_feed?t=${Date.now()}`);
 
   const imgStreamRef = useRef(null);
 
@@ -23,7 +23,7 @@ export default function RegistrarAlumno() {
 
   const cargarProyectos = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/proyectos`);
+      const res = await fetch(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/proyectos`);
       const data = await res.json();
       if (data.status === "ok") setProyectos(data.data);
     } catch (err) { console.error("Error cargando proyectos:", err); }
@@ -38,7 +38,7 @@ export default function RegistrarAlumno() {
     e.preventDefault();
     setEstadoProyecto({ loading: true, error: null });
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/proyectos`, {
+      const res = await fetch(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/proyectos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(nuevoProyecto)
@@ -89,7 +89,7 @@ export default function RegistrarAlumno() {
         imagenes: imagenes
       };
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/personas/registrar`, {
+      const res = await fetch(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/personas/registrar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)

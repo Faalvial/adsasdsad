@@ -10,7 +10,7 @@ export default function Supervisar() {
 
   const cargarProyectos = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/proyectos`);
+      const res = await fetch(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/proyectos`);
       const data = await res.json();
       if (data.status === "ok") setProyectos(data.data);
     } catch (err) { console.error(err); }
@@ -19,7 +19,7 @@ export default function Supervisar() {
   const cargarResumen = async () => {
     setCargando(true);
     try {
-      let url = `${import.meta.env.VITE_API_URL}/api/v1/supervision/resumen`;
+      let url = `${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/supervision/resumen`;
       if (filtroProyecto) url += `?proyecto_id=${filtroProyecto}`;
 
       const res = await fetch(url);
@@ -33,7 +33,7 @@ export default function Supervisar() {
   };
 
   useEffect(() => {
-    const wsUrl = import.meta.env.VITE_API_URL.replace(/^http/, "ws") + "/api/v1/ws";
+    const wsUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/^http/, "ws") + "/api/v1/ws";
     const ws = new WebSocket(wsUrl);
 
     ws.onmessage = (event) => {

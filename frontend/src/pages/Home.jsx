@@ -8,14 +8,14 @@ export default function Home() {
 
   const descargarCSV = (tabla) => {
     const endpoint = tabla === "personas" ? "/api/v1/personas/exportar" : "/api/v1/reportes/exportar";
-    const url = `${import.meta.env.VITE_API_URL}${endpoint}`;
+    const url = `${(import.meta.env.VITE_API_URL || "http://localhost:8000")}${endpoint}`;
     window.open(url, "_blank");
     setMenuExportarAbierto(false);
   };
 
   const cargarEnLaboratorio = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/asistencia/en-laboratorio`);
+      const res = await fetch(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/asistencia/en-laboratorio`);
       const data = await res.json();
       if (data.status === "ok") {
         setEnLaboratorio(data.data);
@@ -31,7 +31,7 @@ export default function Home() {
     cargarEnLaboratorio();
 
     // Conectar WebSocket para actualizaciones en tiempo real
-    const wsUrl = import.meta.env.VITE_API_URL.replace(/^http/, "ws") + "/api/v1/ws";
+    const wsUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/^http/, "ws") + "/api/v1/ws";
     const ws = new WebSocket(wsUrl);
 
     ws.onmessage = (event) => {
