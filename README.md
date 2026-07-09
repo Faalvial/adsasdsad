@@ -99,7 +99,7 @@ El proyecto incluye un entorno preconfigurado con Docker Compose que levanta la 
 
 2. **Iniciar los servicios:**
    ```bash
-   docker-compose up -d --build
+   docker compose up -d --build
    ```
 
 3. El frontend estará disponible en `http://<TU_IP>:5173` y el backend en `http://<TU_IP>:8000`.
