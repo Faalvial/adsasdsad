@@ -196,11 +196,13 @@ def check_health():
 
 @app.get("/api/v1/sistema/estado")
 def get_estado():
-    global proceso_main
-    # Si el proceso existe y no ha terminado (poll es None), está activo
+    global proceso_main, usuarios_en_registro
+    # Si el proceso existe y no ha terminado, está activo
     activo = proceso_main is not None and proceso_main.poll() is None
-    return {"activo": activo}
-
+    # NUEVO: Informar si el semáforo está bloqueando la cámara
+    bloqueado = usuarios_en_registro > 0 
+    
+    return {"activo": activo, "bloqueado": bloqueado}
 
 @app.post("/api/v1/sistema/estado")
 async def set_estado(payload: EstadoRequest):
@@ -628,18 +630,19 @@ def exportar_historial_csv(fecha: str = None):
         if conn: conn.close()
 
 @app.post("/api/v1/sistema/registro/iniciar")
-def iniciar_registro():
+async def iniciar_registro(): # <-- Agregar async
     global usuarios_en_registro
     usuarios_en_registro += 1
     print(f"[SEMAFORO] Candado activado. Usuarios en registro: {usuarios_en_registro}")
+    await notify_update("estado_sistema") # <-- AVISO INSTANTÁNEO A TODOS
     return {"status": "candado_activado", "usuarios": usuarios_en_registro}
 
 @app.post("/api/v1/sistema/registro/finalizar")
-def finalizar_registro():
+async def finalizar_registro(): # <-- Agregar async
     global usuarios_en_registro
-    # Evitamos que el contador baje de 0 en caso de múltiples llamadas accidentales
     if usuarios_en_registro > 0:
         usuarios_en_registro -= 1
         
     print(f"[SEMAFORO] Candado liberado. Usuarios restantes: {usuarios_en_registro}")
+    await notify_update("estado_sistema") # <-- AVISO INSTANTÁNEO A TODOS
     return {"status": "candado_liberado", "usuarios": usuarios_en_registro}

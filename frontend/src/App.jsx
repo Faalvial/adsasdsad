@@ -8,6 +8,7 @@ import GestionBD from "./pages/GestionBD";
 
 function Layout() {
   const [sistemaActivo, setSistemaActivo] = useState(false);
+  const [sistemaBloqueado, setSistemaBloqueado] = useState(false); // <-- NUEVO
   const location = useLocation();
 
   // NUEVO: Memoria para saber de qué pestaña venimos
@@ -58,6 +59,7 @@ const fetchEstado = async () => {
       const res = await fetch(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/sistema/estado`);
       const data = await res.json();
       setSistemaActivo(data.activo);
+      setSistemaBloqueado(data.bloqueado); // <-- NUEVO
     } catch (err) {}
   };
 
@@ -104,26 +106,32 @@ const fetchEstado = async () => {
             IA de Reconocimiento: {sistemaActivo ? "ACTIVA" : "APAGADA"}
           </span>
 
-          <label style={{ position: "relative", display: "inline-block", width: "44px", height: "24px", margin: 0 }}>
-            <input
-              type="checkbox"
-              checked={sistemaActivo}
-              onChange={() => cambiarEstadoBackend(!sistemaActivo)}
-              disabled={location.pathname === '/registrar'}
-              style={{ opacity: 0, width: 0, height: 0 }}
-            />
-            <span style={{
-              position: "absolute",
-              cursor: location.pathname === '/registrar' ? "not-allowed" : "pointer",
-              top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: sistemaActivo ? "#34a853" : "#ccc",
-              transition: ".3s",
-              borderRadius: "24px",
-              opacity: location.pathname === '/registrar' ? 0.4 : 1
-            }}>
-              <span style={{ position: "absolute", content: '""', height: "16px", width: "16px", left: sistemaActivo ? "24px" : "4px", bottom: "4px", backgroundColor: "white", transition: ".3s", borderRadius: "50%" }}></span>
-            </span>
-          </label>
+          {(() => {
+            // Lógica: Se deshabilita si tú estás en /registrar, O si alguien más bloqueó el sistema globalmente
+            const botonDeshabilitado = location.pathname === '/registrar' || sistemaBloqueado;
+            
+            return (
+              <label style={{ position: "relative", display: "inline-block", width: "44px", height: "24px", margin: 0, opacity: botonDeshabilitado ? 0.5 : 1 }}>
+                <input
+                  type="checkbox"
+                  checked={sistemaActivo}
+                  onChange={() => cambiarEstadoBackend(!sistemaActivo)}
+                  disabled={botonDeshabilitado}
+                  style={{ opacity: 0, width: 0, height: 0 }}
+                />
+                <span style={{
+                  position: "absolute",
+                  cursor: botonDeshabilitado ? "not-allowed" : "pointer",
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: sistemaActivo ? "#34a853" : "#ccc",
+                  transition: ".3s",
+                  borderRadius: "24px"
+                }}>
+                  <span style={{ position: "absolute", content: '""', height: "16px", width: "16px", left: sistemaActivo ? "24px" : "4px", bottom: "4px", backgroundColor: "white", transition: ".3s", borderRadius: "50%" }}></span>
+                </span>
+              </label>
+            );
+          })()}
         </div>
 
       </nav>
