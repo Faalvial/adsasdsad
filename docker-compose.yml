@@ -8,6 +8,7 @@ services:
       POSTGRES_DB: control_asistencia
       POSTGRES_USER: asistencia_user
       POSTGRES_PASSWORD: admin123
+      TZ: America/Lima  # <-- ZONA HORARIA AÑADIDA
     ports:
       - "5432:5432"
     volumes:
@@ -27,6 +28,7 @@ services:
       - DB_NAME=control_asistencia
       - DB_USER=asistencia_user
       - DB_PASSWORD=admin123
+      - TZ=America/Lima  # <-- ZONA HORARIA AÑADIDA
     depends_on:
       - db
 
