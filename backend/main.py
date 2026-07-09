@@ -89,7 +89,7 @@ def main():
         for face in last_faces:
             embedding = face.embedding
             name, score = identify_face(embedding, registered, THRESHOLD)
-
+            print(f"[DEBUG IA] Rostro analizado -> {name} | Similitud: {float(score):.4f}", flush=True)
             if name != "Desconocido":
                 ahora = datetime.now()
                 ultimo = cooldown.get(name)

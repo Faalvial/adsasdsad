@@ -1,6 +1,6 @@
 # Threshold y otras configuraciones
 RECONNECT_DELAY = 5  #segundos entre intentos de reconexión
-THRESHOLD = 0.5 #umbral 
+THRESHOLD = 0.6 #umbral 
 DET_THRESHOLD = 0.7
 MODEL_NAME = "buffalo_sc"
 CAMERA_INDEX = "rtsp://admin:Hik12345@172.16.9.114:554/Streaming/Channels/101"
