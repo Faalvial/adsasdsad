@@ -42,6 +42,7 @@ from config import CAMERA_INDEX, RECONNECT_DELAY
 
 # Variable para mantener el rastro del proceso de fondo
 proceso_main = None
+usuarios_en_registro = 0
 
 class EstadoRequest(BaseModel):
     activo: bool
@@ -106,13 +107,20 @@ async def job_cerrar_sesiones():
 @app.on_event("startup")
 async def start_scheduler():
     # Ejecutar la limpieza una vez al iniciar el servidor
-    # Al ser async, ahora usamos 'await'
     await job_cerrar_sesiones()
     
     # Programar la limpieza recurrente a las 00:00
     scheduler.add_job(job_cerrar_sesiones, 'cron', hour=00, minute=00)
     scheduler.start()
     print("[INFO] Tarea programada de cierre a las 00:00 y en startup inicializada.")
+
+    # ---------------------------------------------------------
+    # NUEVO: Encendido autónomo del motor de IA
+    # ---------------------------------------------------------
+    global proceso_main
+    if proceso_main is None or proceso_main.poll() is not None:
+        proceso_main = subprocess.Popen([sys.executable, "main.py"])
+        print("[INFO] Motor de IA iniciado automáticamente de forma autónoma.")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -195,18 +203,25 @@ def get_estado():
 
 
 @app.post("/api/v1/sistema/estado")
-def set_estado(payload: EstadoRequest):
-    global proceso_main
+async def set_estado(payload: EstadoRequest):
+    global proceso_main, usuarios_en_registro
+    
+    # Solo rechazamos si alguien pide ENCENDER y hay AL MENOS UNA persona registrando
+    if payload.activo and usuarios_en_registro > 0:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Recurso bloqueado: Hay {usuarios_en_registro} persona(s) usando la cámara."
+        )
+
     if payload.activo:
-        # Encender main.py usando el mismo entorno virtual (sys.executable)
         if proceso_main is None or proceso_main.poll() is not None:
             proceso_main = subprocess.Popen([sys.executable, "main.py"])
     else:
-        # Apagar main.py destruyendo el proceso
         if proceso_main is not None and proceso_main.poll() is None:
             proceso_main.terminate()
             proceso_main = None
 
+    await notify_update("estado_sistema")
     return {"status": "ok", "activo": payload.activo}
 
 
@@ -611,3 +626,20 @@ def exportar_historial_csv(fecha: str = None):
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
+
+@app.post("/api/v1/sistema/registro/iniciar")
+def iniciar_registro():
+    global usuarios_en_registro
+    usuarios_en_registro += 1
+    print(f"[SEMAFORO] Candado activado. Usuarios en registro: {usuarios_en_registro}")
+    return {"status": "candado_activado", "usuarios": usuarios_en_registro}
+
+@app.post("/api/v1/sistema/registro/finalizar")
+def finalizar_registro():
+    global usuarios_en_registro
+    # Evitamos que el contador baje de 0 en caso de múltiples llamadas accidentales
+    if usuarios_en_registro > 0:
+        usuarios_en_registro -= 1
+        
+    print(f"[SEMAFORO] Candado liberado. Usuarios restantes: {usuarios_en_registro}")
+    return {"status": "candado_liberado", "usuarios": usuarios_en_registro}

@@ -15,9 +15,23 @@ export default function RegistrarAlumno() {
   const imgStreamRef = useRef(null);
 
   useEffect(() => {
-    const imgElement = imgStreamRef.current;
-    return () => { if (imgElement) imgElement.src = ""; };
-  }, []);
+      const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+      // 1. Al entrar a la pestaña: Se activa el candado en el backend
+      fetch(`${apiBaseUrl}/api/v1/sistema/registro/iniciar`, { method: "POST" })
+        .catch(err => console.error("Error al inicializar el candado lógico:", err));
+
+      const imgElement = imgStreamRef.current;
+      
+      return () => { 
+        // 2. Limpieza de memoria RAM (lo que ya tenías)
+        if (imgElement) imgElement.src = ""; 
+
+        // 3. Al salir de la pestaña: Se libera el candado en el backend
+        fetch(`${apiBaseUrl}/api/v1/sistema/registro/finalizar`, { method: "POST" })
+          .catch(err => console.error("Error al liberar el candado lógico:", err));
+      };
+    }, []);
 
   const canvasRef = useRef(null);
 

@@ -53,7 +53,7 @@ function Layout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
-  const fetchEstado = async () => {
+const fetchEstado = async () => {
     try {
       const res = await fetch(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/sistema/estado`);
       const data = await res.json();
@@ -62,8 +62,26 @@ function Layout() {
   };
 
   useEffect(() => {
-    const interval = setInterval(fetchEstado, 15000);
-    return () => clearInterval(interval);
+    // 1. Cargar el estado la primera vez que se abre la página
+    fetchEstado();
+
+    // 2. Conectarse al servidor por WebSocket para escuchar cambios en vivo
+    const wsUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/^http/, "ws") + "/api/v1/ws";
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        // Si el servidor avisa que alguien movió el interruptor, actualizamos al instante
+        if (data.type === "update" && data.entity === "estado_sistema") {
+          fetchEstado();
+        }
+      } catch (err) {
+        console.error("Error procesando mensaje WebSocket", err);
+      }
+    };
+
+    return () => ws.close();
   }, []);
 
   return (
