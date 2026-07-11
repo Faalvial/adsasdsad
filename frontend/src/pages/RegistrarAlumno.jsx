@@ -25,7 +25,6 @@ export default function RegistrarAlumno() {
     if (temporizadorRef.current) clearTimeout(temporizadorRef.current);
     
     temporizadorRef.current = setTimeout(() => {
-      alert("Tiempo de inactividad de 5 minutos alcanzado. Volviendo al inicio para liberar la cámara.");
       navigate('/'); // Redirige al inicio
     }, 5 * 60 * 1000); // 5 minutos en milisegundos
   };
