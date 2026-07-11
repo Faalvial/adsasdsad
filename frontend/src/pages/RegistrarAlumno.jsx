@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom"; // <-- NUEVO IMPORT
 
 export default function RegistrarAlumno() {
+  const navigate = useNavigate(); // <-- NUEVO: Para la redirección
+  const temporizadorRef = useRef(null); // <-- NUEVO: Referencia para el reloj
+
   const [proyectos, setProyectos] = useState([]);
-  // Añadido: dni en el estado inicial
   const [formData, setFormData] = useState({ dni: "", codigo_alumno: "", nombres: "", apellidos: "", proyecto_id: "" });
   const [imagenes, setImagenes] = useState([]);
   const [estado, setEstado] = useState({ loading: false, error: null, success: null });
@@ -13,6 +16,39 @@ export default function RegistrarAlumno() {
   const [streamUrl] = useState(`${(import.meta.env.VITE_API_URL || "http://localhost:8000")}/api/v1/video_feed?t=${Date.now()}`);
 
   const imgStreamRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  // ------------------------------------------------------------------
+  // NUEVO BLOQUE: LÓGICA DE INACTIVIDAD (5 MINUTOS)
+  // ------------------------------------------------------------------
+  const reiniciarTemporizador = () => {
+    if (temporizadorRef.current) clearTimeout(temporizadorRef.current);
+    
+    temporizadorRef.current = setTimeout(() => {
+      alert("Tiempo de inactividad de 5 minutos alcanzado. Volviendo al inicio para liberar la cámara.");
+      navigate('/'); // Redirige al inicio
+    }, 5 * 60 * 1000); // 5 minutos en milisegundos
+  };
+
+  useEffect(() => {
+    // 1. Iniciar el reloj al entrar
+    reiniciarTemporizador();
+
+    // 2. Escuchar actividad del usuario
+    window.addEventListener('mousemove', reiniciarTemporizador);
+    window.addEventListener('mousedown', reiniciarTemporizador);
+    window.addEventListener('keydown', reiniciarTemporizador);
+
+    // 3. Limpiar oyentes si el usuario sale manualmente
+    return () => {
+      if (temporizadorRef.current) clearTimeout(temporizadorRef.current);
+      window.removeEventListener('mousemove', reiniciarTemporizador);
+      window.removeEventListener('mousedown', reiniciarTemporizador);
+      window.removeEventListener('keydown', reiniciarTemporizador);
+    };
+  }, []);
+  // ------------------------------------------------------------------
+
 
   useEffect(() => {
       const apiBaseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -24,7 +60,7 @@ export default function RegistrarAlumno() {
       const imgElement = imgStreamRef.current;
       
       return () => { 
-        // 2. Limpieza de memoria RAM (lo que ya tenías)
+        // 2. Limpieza de memoria RAM
         if (imgElement) imgElement.src = ""; 
 
         // 3. Al salir de la pestaña: Se libera el candado en el backend
@@ -32,8 +68,6 @@ export default function RegistrarAlumno() {
           .catch(err => console.error("Error al liberar el candado lógico:", err));
       };
     }, []);
-
-  const canvasRef = useRef(null);
 
   const cargarProyectos = async () => {
     try {
